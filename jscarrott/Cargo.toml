@@ -1,0 +1,9 @@
+[package]
+name = "jscarrott"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+console_error_panic_hook = "0.1.7"
+ratzilla = "0.0.1"
+tachyonfx = { git = "https://github.com/orhun/tachyonfx", branch = "feat/wasm_support", default-features = false, features = ["web-time"] }
