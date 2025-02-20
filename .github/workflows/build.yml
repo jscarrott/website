@@ -2,7 +2,7 @@ name: Build and Deploy to Github Pages
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -27,7 +27,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         sparse-checkout: |
-            website
+            jscarrott
     - name: Install WASM toolchain
       run: rustup target add wasm32-unknown-unknown
     - name: Install trunk
