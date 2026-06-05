@@ -1,7 +1,7 @@
 ---
 title: C for Real-Time Developers
 org: Feabhas
-location: Royal Wooten Basset
+location: Royal Wootton Bassett
 date: "2016"
 emoji: "⚡"
 accent: green

@@ -10,3 +10,6 @@ ratzilla = "0.3.0"
 # wasm32-unknown-unknown has none by default, leaving `env` imports that break
 # wasm instantiation. The `std` feature registers a std-backed implementation.
 critical-section = { version = "1.2", features = ["std"] }
+# Used to map mouse-click pixel coordinates onto terminal cells (ratzilla
+# re-exports web-sys, but we enable the DOM-geometry features we need here).
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "DomRect"] }

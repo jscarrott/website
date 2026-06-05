@@ -1,15 +1,17 @@
 ---
-title: Senior Rust Software Engineer
-org: Razorsecure
+title: Senior Rust Software Engineer & Platform Lead
+org: RazorSecure
 location: Remote
-date: December 2019 - PRESENT
+date: December 2019 - Present
 emoji: "🚀"
 accent: yellow
 ---
-- **Platform lead:** Responsible for the technical direction for one of the product platforms. In charge of the technical roadmap and leadership around the platform
-- **Development of deep package inspection library:** Developed using zero-copy rust code and with eBPF (XDP) support, capable of sub-micro second latency and 1mpps+. Used as the basis for a next generation intrusion detection product
-- **Deployment of air-gapped kubernetes cluster:** Bundling and supporting a on-premise kubernetes cluster alongside a cloud hosted version
-- **Development of high performance firewall for embedded security gateway:** Development of a L2 to L7 firewall to protect critical network Infrastructure running a single protocol
-- **Migration of a python based client to Rust:** Lead developer in the migration of a legacy python client to a high performance Rust version for the company's flagship product
-- **Development and management of python microservice using terraform and kubernetes:** Use of monorepo build tool pants to orchestrate maintaining 20+ microservices
-- **Contribution to open source libraries:** Small contributions to rust libraries for L2 Network monitoring and Flamegraphs
+- **Platform technical lead:** Set the technical direction for the product and author cross-platform roadmaps coordinating the on-train Agent, Frontend and Microservices/Backend platforms, so an architectural decision on one doesn't break another. Work is tracked as GitHub epics through an idea → buy-in → ticketed → planned → done lifecycle, and includes a push-based configuration-management design.
+- **Rust rewrite of the on-train detection agent (Python → Rust):** Driving an incremental "strangler-fig" migration that ships one stage per sprint with no big-bang cutover. Built the agent as a multi-call single binary (clap) on a Tokio runtime, with structured async task supervision, `panic=unwind` so a faulty monitor restarts rather than aborting the process, a lifecycle state machine, and self-monitoring with health heartbeats. Reimplemented the full monitor suite to strict parity with the Python agent (network DoS / port-scan / ARP, USB, syslog via journald, Suricata DPI, SNMP, GPS via gpsd, file/inotify, nftables and more) and drove the codebase toward pure-Rust dependencies, dropping C-FFI libraries such as libsnmp and paho-mqtt.
+- **High-performance detection core:** Designed and built a zero-copy Rust deep packet inspection library with eBPF (XDP) acceleration, sustaining sub-microsecond latency and 1 million+ packets per second as the basis of the intrusion-detection product, plus an L2-to-L7 firewall for an embedded security gateway protecting critical rail network infrastructure.
+- **Cloud portability and on-prem deployment:** Migrated storage and business logic off Google Cloud onto S3-compatible storage and made the entire platform deployable on-prem and on Azure — in-cluster Elasticsearch, Terraform fixes, and removal of cloud-provider-only assumptions across every Helm chart — including air-gapped Kubernetes clusters running alongside the cloud-hosted offering.
+- **Deployment and release engineering:** Consolidated dozens of per-microservice Helm deployments into a single platform Helm chart (bringing Redis, QuestDB and RabbitMQ into the chart), moved CI off developer machines into GitHub Actions, and introduced a Harbor OCI registry with Replicated-based on-prem distribution. Built release automation around git-cliff changelogs, Conventional-Commit linting, release actions and grouped Dependabot updates.
+- **Data-store performance and platform uplift:** Led deep PostgreSQL alert-store performance work — functional indexes on JSON fields, tsvector search predicates, partition pruning, bulk multi-row inserts and Celery tuning to eliminate out-of-memory failures during large batch jobs — alongside a MySQL 8.4 migration, a Pydantic v2 / FastAPI uplift across services, RabbitMQ 4.2 clustering, QuestDB ingest and memory-leak fixes, and an Elasticsearch migration to a Helm-hosted, tiered deployment with reindex-from-remote.
+- **Rail-specific detection and domain features:** Implemented rail geospatial logic (lat/long → ELR plus miles-and-chains) and a range of new monitors and protocol support — Suricata DPI, an SSH honeypot, the TRDP, MVB and EDSA rail protocols, mirrored-traffic and VLAN-strip handling, rate-limiting and time-based event prioritisation — plus a new customer-configuration microservice.
+- **Observability:** Built a Grafana proxy architecture with authenticated endpoints and config-map-preloaded dashboards, and instrumented the platform throughout with Datadog APM tracing and statsd metrics.
+- **Test and documentation discipline:** Built a multi-tier BDD test harness spanning the agent, processing and integration layers up to end-to-end tests driven through a real MQTT broker, with a JUnit aggregator that produces a Typst PDF test report and parallel Docker-based BDD in CI; established documentation conventions with topical docs and Mermaid / C4 / D2 architecture diagrams, and contributed to open-source Rust libraries for layer-2 network monitoring and flame-graph performance analysis.

@@ -1,7 +1,7 @@
 ---
 title: Advanced C++ Development
 org: Feabhas
-location: Royal Wooten Basset
+location: Royal Wootton Bassett
 date: "2016"
 emoji: "🔧"
 accent: blue

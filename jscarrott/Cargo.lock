@@ -290,6 +290,7 @@ dependencies = [
  "console_error_panic_hook",
  "critical-section",
  "ratzilla",
+ "web-sys",
 ]
 
 [[package]]
