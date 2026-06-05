@@ -244,6 +244,23 @@ enum ClickAction {
 
 type Regions = RefCell<Vec<(Rect, ClickAction)>>;
 
+/// Viewport size in CSS pixels, used to size the terminal canvas (the backend
+/// otherwise measures the empty #terminal-root wrapper as 0x0).
+fn window_inner_size() -> (u32, u32) {
+    let win = web_sys::window();
+    let w = win
+        .as_ref()
+        .and_then(|w| w.inner_width().ok())
+        .and_then(|v| v.as_f64())
+        .unwrap_or(1024.0);
+    let h = win
+        .as_ref()
+        .and_then(|w| w.inner_height().ok())
+        .and_then(|v| v.as_f64())
+        .unwrap_or(768.0);
+    (w as u32, h as u32)
+}
+
 /// The active view, read from `<html data-view>` (set by the page's inline
 /// script). In "plain" mode the static HTML CV is shown instead of the terminal.
 fn view_mode() -> Option<String> {
@@ -265,8 +282,15 @@ fn main() -> io::Result<()> {
 
     // Canvas backend draws to a single <canvas> rather than one DOM element per
     // cell, which is dramatically faster than the DOM backend on large grids.
-    // Mount it inside #terminal-root so the page can show/hide it per view.
-    let backend = CanvasBackend::new_with_options(CanvasBackendOptions::new().grid_id("terminal-root"))?;
+    // Mount it inside #terminal-root so the page can show/hide it per view, and
+    // size it to the viewport explicitly — with a grid_id but no size the backend
+    // falls back to the parent's client size, and #terminal-root starts empty
+    // (0x0), which would leave the terminal blank.
+    let backend = CanvasBackend::new_with_options(
+        CanvasBackendOptions::new()
+            .grid_id("terminal-root")
+            .size(window_inner_size()),
+    )?;
     let terminal = Terminal::new(backend)?;
 
     let app = Rc::new(RefCell::new(App::new()));
