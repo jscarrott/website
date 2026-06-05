@@ -38,51 +38,69 @@
   #text(size: 26pt)[John #text(fill: accent, weight: "bold")[Scarrott]]
   #linebreak()
   #v(2pt)
-  #text(size: 11pt, fill: muted, "Software Engineer · Problem Solver")
+  #text(size: 11pt, fill: muted, "Platform Lead · Rust & Systems Engineer")
   #v(3pt)
   #text(size: 8.5pt, "john@scarrotts.uk  |  (+44) 7733298950  |  www.jscarrott.com  |  github.com/jscarrott  |  Barnstaple, Devon, UK")
 ]
 #v(6pt)
 
 #section("Skills")
-#skill("Systems Programming Languages", "Rust, C++, C")
-#skill("Managed Programming Languages", "Python, C#, F#, Java, Powershell")
-#skill("Programming Paradigms", "Test Driven Development, Behavior Driven Development, Extreme programming")
-#skill("Database Technologies", "SQL, Redis, QuestDb, SQL Server, Postgres")
-#skill("Containerisation", "Docker, Podman, Kubernetes, GKE, AKS")
-#skill("Infrastructure Technologies", "Terraform, Datadog, Jaeger")
-#skill("CI/CD", "Github Actions, FluxCD, ArgoCD, PlzRelease")
-#skill("Testing Technologies", "Pytest, NUnit, GoogleTest, GoogleMock, MSTest, Isolate")
-#skill("Project Organisation Tools", "Github Issues, JIRA, Confluence, Agile, RCSPro, SCRUM")
+#skill("Systems Programming", "Rust (Tokio async, FFI elimination, multi-call binaries), C++, C")
+#skill("Backend & APIs", "Python (FastAPI, Pydantic v2, Celery)")
+#skill("Databases", "PostgreSQL (advanced indexing & partition tuning), MySQL, QuestDB, Elasticsearch, Redis, RabbitMQ")
+#skill("Containerisation & Orchestration", "Docker, Podman, Kubernetes, Helm, GKE, AKS")
+#skill("Infrastructure & Release Engineering", "Terraform/Terragrunt, Skaffold, Pants, Replicated, Harbor, GitHub Actions, ArgoCD, FluxCD")
+#skill("Observability", "Grafana, Datadog APM, statsd")
+#skill("Domain & Protocols", "Rail (TRDP, MVB, EDSA, ELR/miles-and-chains), DPI/Suricata, SNMP, MQTT, ARP, GPS/NMEA/gpsd")
+#skill("Engineering Practice", "Strangler-fig migration, TDD & BDD (Pytest, cargo test), Conventional Commits & release automation, ADRs, C4/D2 architecture modelling, secure-by-design")
+#skill("Leadership", "Cross-platform roadmapping, technical-direction setting, migration & rollback planning, effort estimation")
+#skill("Project Organisation", "GitHub Issues & Epics, JIRA, Confluence, Agile/SCRUM")
+#skill("Previously (not current)", "C#/WPF, F#, Java, PowerShell, SQL Server, NUnit, GoogleTest/GoogleMock, TeamCity, vSphere, packer/vagrant")
 
 #section("Experience")
-#entry("Senior Rust Software Engineer", "Razorsecure", "Remote", "December 2019 - PRESENT", list(
-  item("Platform lead:", "Responsible for the technical direction for one of the product platforms. In charge of the technical roadmap and leadership around the platform"),
-  item("Development of deep package inspection library:", "Developed using zero-copy rust code and with eBPF (XDP) support, capable of sub-micro second latency and 1mpps+. Used as the basis for a next generation intrusion detection product"),
-  item("Deployment of air-gapped kubernetes cluster:", "Bundling and supporting a on-premise kubernetes cluster alongside a cloud hosted version"),
-  item("Development of high performance firewall for embedded security gateway:", "Development of a L2 to L7 firewall to protect critical network Infrastructure running a single protocol"),
-  item("Migration of a python based client to Rust:", "Lead developer in the migration of a legacy python client to a high performance Rust version for the company's flagship product"),
-  item("Development and management of python microservice using terraform and kubernetes:", "Use of monorepo build tool pants to orchestrate maintaining 20+ microservices"),
-  item("Contribution to open source libraries:", "Small contributions to rust libraries for L2 Network monitoring and Flamegraphs"),
+#entry("Senior Rust Software Engineer & Platform Lead", "RazorSecure", "Remote", "December 2019 - Present", list(
+  item("Platform technical lead:", "Set the technical direction for the product and author cross-platform roadmaps coordinating the on-train Agent, Frontend and Microservices/Backend platforms, so an architectural decision on one doesn't break another. Work is tracked as GitHub epics through an idea → buy-in → ticketed → planned → done lifecycle, and includes a push-based configuration-management design."),
+  item("Rust rewrite of the on-train detection agent (Python → Rust):", "Driving an incremental \"strangler-fig\" migration that ships one stage per sprint with no big-bang cutover. Built the agent as a multi-call single binary (clap) on a Tokio runtime, with structured async task supervision, `panic=unwind` so a faulty monitor restarts rather than aborting the process, a lifecycle state machine, and self-monitoring with health heartbeats. Reimplemented the full monitor suite to strict parity with the Python agent (network DoS / port-scan / ARP, USB, syslog via journald, Suricata DPI, SNMP, GPS via gpsd, file/inotify, nftables and more) and drove the codebase toward pure-Rust dependencies, dropping C-FFI libraries such as libsnmp and paho-mqtt."),
+  item("High-performance detection core:", "Designed and built a zero-copy Rust deep packet inspection library with eBPF (XDP) acceleration, sustaining sub-microsecond latency and 1 million+ packets per second as the basis of the intrusion-detection product, plus an L2-to-L7 firewall for an embedded security gateway protecting critical rail network infrastructure."),
+  item("Cloud portability and on-prem deployment:", "Migrated storage and business logic off Google Cloud onto S3-compatible storage and made the entire platform deployable on-prem and on Azure — in-cluster Elasticsearch, Terraform fixes, and removal of cloud-provider-only assumptions across every Helm chart — including air-gapped Kubernetes clusters running alongside the cloud-hosted offering."),
+  item("Deployment and release engineering:", "Consolidated dozens of per-microservice Helm deployments into a single platform Helm chart (bringing Redis, QuestDB and RabbitMQ into the chart), moved CI off developer machines into GitHub Actions, and introduced a Harbor OCI registry with Replicated-based on-prem distribution. Built release automation around git-cliff changelogs, Conventional-Commit linting, release actions and grouped Dependabot updates."),
+  item("Data-store performance and platform uplift:", "Led deep PostgreSQL alert-store performance work — functional indexes on JSON fields, tsvector search predicates, partition pruning, bulk multi-row inserts and Celery tuning to eliminate out-of-memory failures during large batch jobs — alongside a MySQL 8.4 migration, a Pydantic v2 / FastAPI uplift across services, RabbitMQ 4.2 clustering, QuestDB ingest and memory-leak fixes, and an Elasticsearch migration to a Helm-hosted, tiered deployment with reindex-from-remote."),
+  item("Rail-specific detection and domain features:", "Implemented rail geospatial logic (lat/long → ELR plus miles-and-chains) and a range of new monitors and protocol support — Suricata DPI, an SSH honeypot, the TRDP, MVB and EDSA rail protocols, mirrored-traffic and VLAN-strip handling, rate-limiting and time-based event prioritisation — plus a new customer-configuration microservice."),
+  item("Observability:", "Built a Grafana proxy architecture with authenticated endpoints and config-map-preloaded dashboards, and instrumented the platform throughout with Datadog APM tracing and statsd metrics."),
+  item("Test and documentation discipline:", "Built a multi-tier BDD test harness spanning the agent, processing and integration layers up to end-to-end tests driven through a real MQTT broker, with a JUnit aggregator that produces a Typst PDF test report and parallel Docker-based BDD in CI; established documentation conventions with topical docs and Mermaid / C4 / D2 architecture diagrams, and contributed to open-source Rust libraries for layer-2 network monitoring and flame-graph performance analysis."),
 ))
 
-#entry("Software Engineer", "Helitune/Beran Instruments", "Torrington, North Devon", "Jun. 2015 - December 2019", list(
-  item("Development of Next Generation Protection and Condition Monitoring systems:", "Development and systems engineering of a next generation system for large plant monitoring. Championed the use of Rust for several of the system modules. Running a dockerised signal processing and logging system on a embedded target. Currently deploying to the NASA Ames research center."),
-  item("Development of Best in Class Rotor Track and Balance Systems:", "Development and maintenance of class leading RTB system, both carry on and permanent fit. Written to DO-178 level C and D standard."),
-  item("Implementation of an all new C++ module based signal processing system:", "Allowing for the transition of all existing and new products to the new platform. The easily testable and replaceable system shortened development time and lead to a more robust system. It also synergised with the agile manifesto allowing for individual user stories to be tested more easily."),
-  item("Extensive knowledge of C#/WPF:", "Developed and maintained several large (100,000+ line) projects, involved in all parts of the software lifecycle, from writing new software to maintaining legacy systems. Experience with both TDD and BDD design."),
-  item("Debugging in low level environments:", "Debugging issues when the standard tools are unavailable is one of the more interesting challenges in software engineering. The ability to debug in these difficult situations is important as it enables the company to move forward without the purchase of expensive tooling and subsequent delays."),
-  item("Development of a C#/WPF automated testing software for new product line:", "The fully automated testing of the product saved hundreds of man hours, catching production faults that would otherwise have gone unnoticed. Its configuration based design allowed it be the basis of several other products with minimal development effort."),
-  item("Version Control Systems:", "As part of the company's transition to the Git version control system from TFS, I gained valuable experience in teaching people how to use a DVCS. Explaining and justifying the decisions behind the various strategies used to manage source gave me a thorough grounding in how they are best used. This has enabled the company to have multiple developers collaborate on a project with ease, and for the first time incorporate code review into the daily development workflow."),
-  item("Continuous Integration:", "A successful CI workflow requires the orchestration of several different technologies. From the generation of VMs using tools such as packer/vagrant, the hosting of those VMs using vSphere and the management of build agents using teamcity. I have personally managed each of these processes and been involved in continuous improvement programs to streamline them."),
-  item("Multi-Discipline Teamwork:", "Working as part of a cross-skilled team requires strong communication in order to achieve a successful result. On several occasions I have been required to liaise with engineers from different disciplines to fix critical issues under time pressure. My ability to remain level headed and ensure information was shared clearly helped to ship product on time."),
+#entry("Software Engineer", "Helitune/Beran Instruments", "Torrington, North Devon", "June 2015 - December 2019", list(
+  item("Next-generation protection and condition monitoring:", "Development and systems engineering of a next-generation system for large-plant monitoring. Championed the use of Rust for several of the system modules, running a dockerised signal-processing and logging system on an embedded target — being deployed at the NASA Ames Research Center."),
+  item("Rotor Track and Balance systems:", "Developed and maintained a best-in-class RTB system in both carry-on and permanent-fit configurations, written to DO-178 Level C and D."),
+  item("Modular C++ signal-processing system:", "Designed an all-new, module-based C++ signal-processing system that let existing and new products move onto a single platform. Being easily testable and replaceable, it shortened development time, made the system more robust, and fit well with agile working."),
+  item("C#/WPF applications:", "Developed and maintained several large (100,000+ line) C#/WPF projects across the whole software lifecycle, and built a configuration-driven automated test application that saved hundreds of hours and caught production faults before release."),
+  item("Version control and CI:", "Led the company's move from TFS to Git — teaching teams distributed version control and introducing code review — and built the CI workflow around it with packer/vagrant, vSphere and TeamCity."),
 ))
 
 #section("Extracurricular Activity")
+#entry("Author", "STDA Sailboat Simulator", "GitHub", "2023-", list(
+  item("", "Building a physics-based simulator to design, develop and test an autonomous sailboat before deploying to real hardware."),
+  item("", "Ported the 6-degree-of-freedom (6-DOF) dynamics core to Rust from a published autonomous-sailing model (Sailing Team Darmstadt, IRSC 2018), and extended it with route-following, real nautical-chart navigation and a speed-polar calibration instrument."),
+  item("", "Rust and Python, working toward calibrating the model against real-world data for a hardware retrofit and autonomous-control trials."),
+))
+
+#entry("Author", "Homebox Home Assistant Add-on", "GitHub", "2025-", list(
+  item("", "Home Assistant add-on that packages Homebox (a self-hosted home inventory tool) for one-click installation through the Home Assistant Supervisor."),
+  item("", "My most-starred public project, used by the wider Home Assistant community."),
+  item("", "Maintained add-on repository with a containerised build and release flow."),
+))
+
 #entry("Author", "Md-book combiner", "Github", "2023-", list(
   item("", "Simple high-value tool for combining mdbooks from multiple repositories into one"),
   item("", "Leveraged automated releases to make deployment simple"),
   item("", "High complexity to value ratio for personal usecase"),
+))
+
+#entry("Author", "jjui-pm", "GitHub", "2026-", list(
+  item("", "CLI plugin manager, written in Rust, for jjui — a TUI for the Jujutsu (jj) version-control system."),
+  item("", "Manages Lua plugins by reading and modifying the jjui config file; installable via cargo."),
+  item("", "Reflects deep day-to-day use of Jujutsu and the Rust terminal-UI ecosystem."),
 ))
 
 #entry("Contributor", "Rust nRF52 Hal", "Github", "2018-", list(
@@ -90,22 +108,16 @@
   item("", "Being the first to run Rust on the nRF52840 chip proved a real problem solving challenge."),
 ))
 
-#entry("Author", "Shell Config Manager", "Github", "2018-", list(
-  item("", "Simple set of scripts for managing shell configuration files across machines and platforms, supporting powershell and Zsh."),
-  item("", "Leveraging my experience with DVCS to solve another engineering problem."),
-  item("", "Available as a powershell package as PshConfigMan."),
-))
-
 #section("Education")
 #entry("BSc. in Computing and Psychology", "The Open University", "England", "2011 - 2015", list(
   item("", "Software development and the psychology behind user interface design"),
 ))
 
-#entry("C for Real-Time Developers", "Feabhas", "Royal Wooten Basset", "2016", list(
+#entry("C for Real-Time Developers", "Feabhas", "Royal Wootton Bassett", "2016", list(
   item("", "Intensive five day course on writing low-level C with and without a real time operating system."),
 ))
 
-#entry("Advanced C++ Development", "Feabhas", "Royal Wooten Basset", "2016", list(
+#entry("Advanced C++ Development", "Feabhas", "Royal Wootton Bassett", "2016", list(
   item("", "Intensive five day course on writing C++ on micro-controllers."),
   item("", "Learned many of the pitfalls with the C++ language."),
   item("", "Learned how to leverage the more technical features of the language."),

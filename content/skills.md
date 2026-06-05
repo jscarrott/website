@@ -1,12 +1,14 @@
 ---
 title: Skills
 ---
-- Systems Programming Languages: Rust, C++, C
-- Managed Programming Languages: Python, C#, F#, Java, Powershell
-- Programming Paradigms: Test Driven Development, Behavior Driven Development, Extreme programming
-- Database Technologies: SQL, Redis, QuestDb, SQL Server, Postgres
-- Containerisation: Docker, Podman, Kubernetes, GKE, AKS
-- Infrastructure Technologies: Terraform, Datadog, Jaeger
-- CI/CD: Github Actions, FluxCD, ArgoCD, PlzRelease
-- Testing Technologies: Pytest, NUnit, GoogleTest, GoogleMock, MSTest, Isolate
-- Project Organisation Tools: Github Issues, JIRA, Confluence, Agile, RCSPro, SCRUM
+- Systems Programming: Rust (Tokio async, FFI elimination, multi-call binaries), C++, C
+- Backend & APIs: Python (FastAPI, Pydantic v2, Celery)
+- Databases: PostgreSQL (advanced indexing & partition tuning), MySQL, QuestDB, Elasticsearch, Redis, RabbitMQ
+- Containerisation & Orchestration: Docker, Podman, Kubernetes, Helm, GKE, AKS
+- Infrastructure & Release Engineering: Terraform/Terragrunt, Skaffold, Pants, Replicated, Harbor, GitHub Actions, ArgoCD, FluxCD
+- Observability: Grafana, Datadog APM, statsd
+- Domain & Protocols: Rail (TRDP, MVB, EDSA, ELR/miles-and-chains), DPI/Suricata, SNMP, MQTT, ARP, GPS/NMEA/gpsd
+- Engineering Practice: Strangler-fig migration, TDD & BDD (Pytest, cargo test), Conventional Commits & release automation, ADRs, C4/D2 architecture modelling, secure-by-design
+- Leadership: Cross-platform roadmapping, technical-direction setting, migration & rollback planning, effort estimation
+- Project Organisation: GitHub Issues & Epics, JIRA, Confluence, Agile/SCRUM
+- Previously (not current): C#/WPF, F#, Java, PowerShell, SQL Server, NUnit, GoogleTest/GoogleMock, TeamCity, vSphere, packer/vagrant
