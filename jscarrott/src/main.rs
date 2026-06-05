@@ -1,10 +1,13 @@
 use std::{cell::RefCell, io, rc::Rc};
 
+mod content;
+use content::PROFILE;
+
 use ratzilla::{
     event::KeyCode, ratatui::{
         prelude::*,
         widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
-    }, CanvasBackend, DomBackend, WebGl2Backend, WebRenderer
+    }, DomBackend, WebRenderer
 };
 
 #[derive(Copy, Debug, Clone, PartialEq)]
@@ -162,11 +165,11 @@ fn render_welcome(f: &mut Frame<'_>, app: &App) {
     // Header with Nord colors
     let header_text = Text::from(vec![
         Line::from(""),
-        Line::from("John Scarrott").style(Style::default().fg(Color::Rgb(136, 192, 208)).add_modifier(Modifier::BOLD)), // Nord8 - frost
-        Line::from("Senior Software Engineer • Systems Specialist").style(Style::default().fg(Color::Rgb(235, 203, 139))), // Nord13 - aurora yellow
+        Line::from(PROFILE.name).style(Style::default().fg(Color::Rgb(136, 192, 208)).add_modifier(Modifier::BOLD)), // Nord8 - frost
+        Line::from(PROFILE.position).style(Style::default().fg(Color::Rgb(235, 203, 139))), // Nord13 - aurora yellow
         Line::from(""),
-        Line::from("📧 johnps@outlook.com  🌐 www.jscarrott.com  💼 github.com/jscarrott"),
-        Line::from("📱 (+44) 7733298950  📍 Barnstaple, Devon, UK"),
+        Line::from(format!("📧 {}  🌐 {}  💼 {}", PROFILE.email, PROFILE.homepage, PROFILE.github)),
+        Line::from(format!("📱 {}  📍 {}", PROFILE.phone, PROFILE.location)),
         Line::from(""),
     ]);
     

@@ -2,17 +2,35 @@ name: Build and Deploy to Github Pages
 
 on:
   push:
-    # branches: ["master"]
+    branches: ["master"]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  check:
+    name: Check CV / site sync
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Cross-check cv.tex against content.rs
+        run: ./scripts/check-cv-sync.sh
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            jscarrott
+      - name: Move folder
+        run: mv jscarrott/* .
       - name: Set up cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/.crates.toml
@@ -23,17 +41,14 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          sparse-checkout: |
-            jscarrott
-      - name: Move folder
-        run: mv jscarrott/* .
-      - name: Install WASM toolchain
-        run: rustup target add wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown
       - name: Install trunk
-        run: cargo install trunk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk
       - name: Build project
         run: trunk build --release --verbose --public-url https://jscarrott.com
       - name: Upload artifact
