@@ -5,4 +5,8 @@ edition = "2021"
 
 [dependencies]
 console_error_panic_hook = "0.1.7"
-ratzilla = "0.1.0"
+ratzilla = "0.3.0"
+# ratatui-core (via ratzilla 0.3 → ratatui 0.30) needs a critical-section impl;
+# wasm32-unknown-unknown has none by default, leaving `env` imports that break
+# wasm instantiation. The `std` feature registers a std-backed implementation.
+critical-section = { version = "1.2", features = ["std"] }
