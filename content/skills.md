@@ -1,0 +1,12 @@
+---
+title: Skills
+---
+- Systems Programming Languages: Rust, C++, C
+- Managed Programming Languages: Python, C#, F#, Java, Powershell
+- Programming Paradigms: Test Driven Development, Behavior Driven Development, Extreme programming
+- Database Technologies: SQL, Redis, QuestDb, SQL Server, Postgres
+- Containerisation: Docker, Podman, Kubernetes, GKE, AKS
+- Infrastructure Technologies: Terraform, Datadog, Jaeger
+- CI/CD: Github Actions, FluxCD, ArgoCD, PlzRelease
+- Testing Technologies: Pytest, NUnit, GoogleTest, GoogleMock, MSTest, Isolate
+- Project Organisation Tools: Github Issues, JIRA, Confluence, Agile, RCSPro, SCRUM

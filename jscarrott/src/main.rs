@@ -1,14 +1,39 @@
 use std::{cell::RefCell, io, rc::Rc};
 
-mod content;
-use content::PROFILE;
+mod generated_content;
+use generated_content::{self as gc, PROFILE};
 
 use ratzilla::{
-    event::KeyCode, ratatui::{
+    event::KeyCode,
+    ratatui::{
         prelude::*,
         widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
-    }, DomBackend, WebRenderer
+    },
+    DomBackend, WebRenderer,
 };
+
+// Nord palette ----------------------------------------------------------------
+const NORD0: Color = Color::Rgb(46, 52, 64); // polar night (background)
+const NORD3: Color = Color::Rgb(76, 86, 106); // polar night (muted hints)
+const NORD4: Color = Color::Rgb(216, 222, 233); // snow storm (dim)
+const NORD6: Color = Color::Rgb(236, 239, 244); // snow storm (body text)
+const FROST: Color = Color::Rgb(136, 192, 208); // Nord8 (headings)
+const TEAL: Color = Color::Rgb(143, 188, 187); // Nord7
+
+/// Resolve a content `accent` name (set in the markdown frontmatter) to a Nord
+/// aurora colour.
+fn accent_color(name: &str) -> Color {
+    match name {
+        "yellow" => Color::Rgb(235, 203, 139), // Nord13
+        "green" => Color::Rgb(163, 190, 140),  // Nord14
+        "blue" => Color::Rgb(129, 161, 193),   // Nord9
+        "purple" => Color::Rgb(180, 142, 173), // Nord15
+        "teal" => TEAL,
+        "red" => Color::Rgb(191, 97, 106),    // Nord11
+        "orange" => Color::Rgb(208, 135, 112), // Nord12
+        _ => FROST,
+    }
+}
 
 #[derive(Copy, Debug, Clone, PartialEq)]
 enum Screen {
@@ -90,9 +115,8 @@ fn main() -> io::Result<()> {
     let backend = DomBackend::new()?;
     let terminal = Terminal::new(backend)?;
 
-    
     let app = Rc::new(RefCell::new(App::new()));
-    
+
     terminal.on_key_event({
         let app = app.clone();
         move |key_event| {
@@ -133,26 +157,26 @@ fn main() -> io::Result<()> {
 
 fn ui(f: &mut Frame<'_>, app: Rc<RefCell<App>>) {
     let app_ref = app.borrow();
-    
+
     // Clear the screen with Nord polar night background
     Clear.render(f.area(), f.buffer_mut());
     Block::default()
-        .style(Style::default().bg(Color::Rgb(46, 52, 64))) // Nord0 - polar night
+        .style(Style::default().bg(NORD0))
         .render(f.area(), f.buffer_mut());
 
     match app_ref.screen {
         Screen::Welcome => render_welcome(f, &app_ref),
         Screen::About => render_about(f),
-        Screen::Experience => render_experience(f),
+        Screen::Experience => render_entry_screen(f, "Professional Experience", gc::EXPERIENCE),
         Screen::Skills => render_skills(f),
-        Screen::Education => render_education(f),
-        Screen::Projects => render_projects(f),
+        Screen::Education => render_entry_screen(f, "Education & Training", gc::EDUCATION),
+        Screen::Projects => render_entry_screen(f, "Projects & Contributions", gc::PROJECTS),
     }
 }
 
 fn render_welcome(f: &mut Frame<'_>, app: &App) {
     let area = f.area();
-    
+
     let main_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -162,18 +186,24 @@ fn render_welcome(f: &mut Frame<'_>, app: &App) {
         ])
         .split(area);
 
-    // Header with Nord colors
+    // Header (sourced from the generated profile)
     let header_text = Text::from(vec![
         Line::from(""),
-        Line::from(PROFILE.name).style(Style::default().fg(Color::Rgb(136, 192, 208)).add_modifier(Modifier::BOLD)), // Nord8 - frost
-        Line::from(PROFILE.position).style(Style::default().fg(Color::Rgb(235, 203, 139))), // Nord13 - aurora yellow
+        Line::from(PROFILE.name).style(Style::default().fg(FROST).add_modifier(Modifier::BOLD)),
+        Line::from(PROFILE.position).style(Style::default().fg(Color::Rgb(235, 203, 139))),
         Line::from(""),
-        Line::from(format!("📧 {}  🌐 {}  💼 {}", PROFILE.email, PROFILE.homepage, PROFILE.github)),
+        Line::from(format!(
+            "📧 {}  🌐 {}  💼 {}",
+            PROFILE.email, PROFILE.homepage, PROFILE.github
+        )),
         Line::from(format!("📱 {}  📍 {}", PROFILE.phone, PROFILE.location)),
         Line::from(""),
     ]);
-    
-    let header_area = main_layout[0].inner(Margin { horizontal: 2, vertical: 1 });
+
+    let header_area = main_layout[0].inner(Margin {
+        horizontal: 2,
+        vertical: 1,
+    });
     f.render_widget(header_text.centered(), header_area);
 
     // Menu
@@ -183,47 +213,55 @@ fn render_welcome(f: &mut Frame<'_>, app: &App) {
         .enumerate()
         .map(|(i, screen)| {
             let style = if i == app.selected_menu {
-                Style::default().fg(Color::Rgb(46, 52, 64)).bg(Color::Rgb(136, 192, 208)).add_modifier(Modifier::BOLD) // Nord0 on Nord8
+                Style::default()
+                    .fg(NORD0)
+                    .bg(FROST)
+                    .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::Rgb(236, 239, 244)) // Nord6 - snow storm
+                Style::default().fg(NORD6)
             };
-            
+
             let number = format!("{}. ", i + 1);
             ListItem::new(Line::from(vec![
-                Span::styled(number, Style::default().fg(Color::Rgb(235, 203, 139))), // Nord13 - aurora yellow
+                Span::styled(number, Style::default().fg(Color::Rgb(235, 203, 139))),
                 Span::styled(screen.title(), style),
             ]))
         })
         .collect();
 
-    let menu = List::new(menu_items)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Rgb(143, 188, 187))) // Nord7 - frost teal
-                .title(" Navigation ")
-                .title_style(Style::default().fg(Color::Rgb(143, 188, 187)).add_modifier(Modifier::BOLD)) // Nord7 - frost teal
-        );
+    let menu = List::new(menu_items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(TEAL))
+            .title(" Navigation ")
+            .title_style(Style::default().fg(TEAL).add_modifier(Modifier::BOLD)),
+    );
 
-    let menu_area = main_layout[1].inner(Margin { horizontal: 4, vertical: 1 });
+    let menu_area = main_layout[1].inner(Margin {
+        horizontal: 4,
+        vertical: 1,
+    });
     f.render_widget(menu, menu_area);
 
     // Instructions
-    let instructions = Text::from(vec![
-        Line::from("↑↓ Navigate • Enter/Space Select • 1-5 Quick Jump • Q/Esc Home"),
-    ]);
-    
-    let instructions_area = main_layout[2].inner(Margin { horizontal: 2, vertical: 0 });
+    let instructions = Text::from(vec![Line::from(
+        "↑↓ Navigate • Enter/Space Select • 1-5 Quick Jump • Q/Esc Home",
+    )]);
+
+    let instructions_area = main_layout[2].inner(Margin {
+        horizontal: 2,
+        vertical: 0,
+    });
     f.render_widget(
-        instructions.centered().style(Style::default().fg(Color::Rgb(76, 86, 106))), // Nord3 - polar night
+        instructions.centered().style(Style::default().fg(NORD3)),
         instructions_area,
     );
-
 }
 
-fn render_about(f: &mut Frame<'_>) {
+/// Shared chrome for a content screen: centered title, body, and a return hint.
+fn screen_frame(f: &mut Frame<'_>, title: &str, body: Paragraph) {
     let area = f.area();
-    
+
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -233,313 +271,82 @@ fn render_about(f: &mut Frame<'_>) {
         ])
         .split(area);
 
-    // Title
-    let title = Paragraph::new("About Me")
-        .style(Style::default().fg(Color::Rgb(136, 192, 208)).add_modifier(Modifier::BOLD)) // Nord8 - frost
+    let title_widget = Paragraph::new(title)
+        .style(Style::default().fg(FROST).add_modifier(Modifier::BOLD))
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::Rgb(136, 192, 208))));
-    f.render_widget(title, layout[0]);
+        .block(
+            Block::default()
+                .borders(Borders::BOTTOM)
+                .border_style(Style::default().fg(FROST)),
+        );
+    f.render_widget(title_widget, layout[0]);
 
-    // Content
-    let content = Text::from(vec![
-        Line::from(""),
-        Line::from("I'm a passionate Senior Software Engineer with over 8 years of experience"),
-        Line::from("specializing in systems programming, high-performance computing, and"),
-        Line::from("infrastructure automation. Currently leading platform development at"),
-        Line::from("Razorsecure, where I architect solutions for next-generation security"),
-        Line::from("products."),
-        Line::from(""),
-        Line::from("My expertise spans from low-level systems programming in Rust and C++"),
-        Line::from("to full-stack development with modern frameworks. I have extensive"),
-        Line::from("experience with containerization, CI/CD pipelines, and cloud"),
-        Line::from("infrastructure deployment."),
-        Line::from(""),
-        Line::from("Core Competencies:"),
-        Line::from("• High-performance systems and network programming"),
-        Line::from("• Embedded systems and microcontroller development"),
-        Line::from("• DevOps and infrastructure automation"),
-        Line::from("• Open source contribution and community building"),
-        Line::from(""),
-        Line::from("I'm passionate about solving complex technical challenges and"),
-        Line::from("contributing to the open source community. When not coding, I enjoy"),
-        Line::from("working on personal projects that address real-world problems."),
-    ]);
+    let content_area = layout[1].inner(Margin {
+        horizontal: 2,
+        vertical: 1,
+    });
+    f.render_widget(body.wrap(Wrap { trim: true }), content_area);
 
-    let content_area = layout[1].inner(Margin { horizontal: 4, vertical: 1 });
-    f.render_widget(
-        Paragraph::new(content)
-            .wrap(Wrap { trim: true })
-            .style(Style::default().fg(Color::Rgb(236, 239, 244))), // Nord6 - snow storm
-        content_area,
-    );
-
-    // Navigation hint
     let nav_hint = Paragraph::new("Press Q or Esc to return to main menu")
-        .style(Style::default().fg(Color::Rgb(76, 86, 106))) // Nord3 - polar night
+        .style(Style::default().fg(NORD3))
         .alignment(Alignment::Center);
     f.render_widget(nav_hint, layout[2]);
 }
 
-fn render_experience(f: &mut Frame<'_>) {
-    let area = f.area();
-    
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(5),
-            Constraint::Length(2),
-        ])
-        .split(area);
+/// Render an entry-based section (Experience, Education, Projects).
+fn render_entry_screen(f: &mut Frame<'_>, title: &str, entries: &[gc::Entry]) {
+    let body_style = Style::default().fg(NORD6);
+    let date_style = Style::default().fg(NORD4);
 
-    // Title
-    let title = Paragraph::new("Professional Experience")
-        .style(Style::default().fg(Color::Rgb(136, 192, 208)).add_modifier(Modifier::BOLD)) // Nord8 - frost
-        .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::Rgb(136, 192, 208))));
-    f.render_widget(title, layout[0]);
+    let mut lines: Vec<Line> = vec![Line::from("")];
+    for e in entries {
+        let accent = accent_color(e.accent);
+        let header = if e.emoji.is_empty() {
+            format!("{} @ {}", e.title, e.org)
+        } else {
+            format!("{} {} @ {}", e.emoji, e.title, e.org)
+        };
+        lines.push(Line::from(header).style(Style::default().fg(accent).add_modifier(Modifier::BOLD)));
+        lines.push(Line::from(format!("   {} | {}", e.date, e.location)).style(date_style));
+        lines.push(Line::from(""));
+        for b in e.bullets {
+            if b.lead.is_empty() {
+                lines.push(Line::from(format!("   • {}", b.rest)).style(body_style));
+            } else {
+                lines.push(Line::from(vec![
+                    Span::styled("   • ", body_style),
+                    Span::styled(b.lead, Style::default().fg(accent).add_modifier(Modifier::BOLD)),
+                    Span::styled(format!(" {}", b.rest), body_style),
+                ]));
+            }
+        }
+        lines.push(Line::from(""));
+    }
 
-    // Content
-    let content = Text::from(vec![
-        Line::from(""),
-        Line::from("🚀 Senior Rust Software Engineer @ Razorsecure").style(Style::default().fg(Color::Rgb(235, 203, 139)).add_modifier(Modifier::BOLD)), // Nord13 - aurora yellow
-        Line::from("   December 2019 - Present | Remote").style(Style::default().fg(Color::Rgb(216, 222, 233))), // Nord4 - snow storm
-        Line::from(""),
-        Line::from("   • Platform Lead: Drive technical direction and roadmap for core product platform"),
-        Line::from("   • High-Performance Networking: Developed zero-copy packet inspection library"),
-        Line::from("     achieving sub-microsecond latency and 1M+ packets per second throughput"),
-        Line::from("   • Infrastructure Architecture: Deployed and maintained air-gapped Kubernetes"),
-        Line::from("     clusters for both on-premise and cloud environments"),
-        Line::from("   • Security Engineering: Built L2-L7 firewall for embedded security gateways"),
-        Line::from("   • Technical Migration: Led successful migration from Python to high-performance"),
-        Line::from("     Rust client for flagship product"),
-        Line::from("   • Microservices Management: Orchestrated 20+ microservices using monorepo"),
-        Line::from("     build tools and modern CI/CD practices"),
-        Line::from("   • Open Source: Contributed to Rust libraries for network monitoring and"),
-        Line::from("     performance analysis"),
-        Line::from(""),
-        Line::from("⚙️  Software Engineer @ Helitune/Beran Instruments").style(Style::default().fg(Color::Rgb(163, 190, 140)).add_modifier(Modifier::BOLD)), // Nord14 - aurora green
-        Line::from("   June 2015 - December 2019 | Torrington, North Devon").style(Style::default().fg(Color::Rgb(216, 222, 233))), // Nord4 - snow storm
-        Line::from(""),
-        Line::from("   • Systems Engineering: Developed next-generation protection and condition"),
-        Line::from("     monitoring systems deployed at NASA Ames Research Center"),
-        Line::from("   • Embedded Development: Built best-in-class Rotor Track and Balance systems"),
-        Line::from("     meeting DO-178 Level C/D aviation standards"),
-        Line::from("   • Architecture Design: Implemented modular C++ signal processing system"),
-        Line::from("     reducing development time and improving system robustness"),
-        Line::from("   • Full-Stack Development: Maintained large-scale C#/WPF applications"),
-        Line::from("     (100,000+ lines) with TDD and BDD methodologies"),
-        Line::from("   • Quality Assurance: Created automated testing framework saving hundreds"),
-        Line::from("     of development hours and preventing production issues"),
-        Line::from("   • DevOps Implementation: Led transition from TFS to Git, establishing"),
-        Line::from("     code review workflows and CI/CD pipelines with TeamCity"),
-        Line::from("   • Cross-Functional Leadership: Collaborated with multidisciplinary teams"),
-        Line::from("     to deliver critical solutions under tight deadlines"),
-    ]);
-
-    let content_area = layout[1].inner(Margin { horizontal: 2, vertical: 1 });
-    f.render_widget(
-        Paragraph::new(content)
-            .wrap(Wrap { trim: true })
-            .style(Style::default().fg(Color::White)),
-        content_area,
-    );
-
-    // Navigation hint
-    let nav_hint = Paragraph::new("Press Q or Esc to return to main menu")
-        .style(Style::default().fg(Color::DarkGray))
-        .alignment(Alignment::Center);
-    f.render_widget(nav_hint, layout[2]);
+    screen_frame(f, title, Paragraph::new(lines));
 }
 
 fn render_skills(f: &mut Frame<'_>) {
-    let area = f.area();
-    
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(5),
-            Constraint::Length(2),
-        ])
-        .split(area);
+    // Cycle the aurora palette across categories for visual variety.
+    let palette = ["yellow", "green", "purple", "blue", "teal", "red", "orange"];
+    let body_style = Style::default().fg(NORD6);
 
-    // Title
-    let title = Paragraph::new("Technical Skills")
-        .style(Style::default().fg(Color::Rgb(136, 192, 208)).add_modifier(Modifier::BOLD)) // Nord8 - frost
-        .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::Rgb(136, 192, 208))));
-    f.render_widget(title, layout[0]);
+    let mut lines: Vec<Line> = vec![Line::from("")];
+    for (i, cat) in gc::SKILLS.iter().enumerate() {
+        let accent = accent_color(palette[i % palette.len()]);
+        lines.push(Line::from(cat.name).style(Style::default().fg(accent).add_modifier(Modifier::BOLD)));
+        lines.push(Line::from(format!("   {}", cat.items)).style(body_style));
+        lines.push(Line::from(""));
+    }
 
-    // Content
-    let content = Text::from(vec![
-        Line::from(""),
-        Line::from("🦀 Systems Programming").style(Style::default().fg(Color::Rgb(235, 203, 139)).add_modifier(Modifier::BOLD)), // Nord13 - aurora yellow
-        Line::from("   Rust, C++, C - Low-level systems, embedded development, performance optimization"),
-        Line::from(""),
-        Line::from("🐍 Application Development").style(Style::default().fg(Color::Rgb(163, 190, 140)).add_modifier(Modifier::BOLD)), // Nord14 - aurora green
-        Line::from("   Python, C#, F#, Java, PowerShell - Full-stack applications and automation"),
-        Line::from(""),
-        Line::from("🧠 Development Methodologies").style(Style::default().fg(Color::Rgb(180, 142, 173)).add_modifier(Modifier::BOLD)), // Nord15 - aurora purple
-        Line::from("   Test-Driven Development, Behavior-Driven Development, Extreme Programming"),
-        Line::from(""),
-        Line::from("🗄️  Data & Storage").style(Style::default().fg(Color::Rgb(129, 161, 193)).add_modifier(Modifier::BOLD)), // Nord9 - frost blue
-        Line::from("   SQL, Redis, QuestDB, SQL Server, PostgreSQL - Database design and optimization"),
-        Line::from(""),
-        Line::from("📦 Containerization & Orchestration").style(Style::default().fg(Color::Rgb(143, 188, 187)).add_modifier(Modifier::BOLD)), // Nord7 - frost teal
-        Line::from("   Docker, Podman, Kubernetes, GKE, AKS - Cloud-native deployment and scaling"),
-        Line::from(""),
-        Line::from("🏗️  Infrastructure & DevOps").style(Style::default().fg(Color::Rgb(191, 97, 106)).add_modifier(Modifier::BOLD)), // Nord11 - aurora red
-        Line::from("   Terraform, Datadog, Jaeger, GitHub Actions, FluxCD, ArgoCD"),
-        Line::from(""),
-        Line::from("🧪 Testing & Quality").style(Style::default().fg(Color::Rgb(208, 135, 112)).add_modifier(Modifier::BOLD)), // Nord12 - aurora orange
-        Line::from("   Pytest, NUnit, GoogleTest, GoogleMock, MSTest, Isolate"),
-        Line::from(""),
-        Line::from("📋 Project Management").style(Style::default().fg(Color::Rgb(94, 129, 172)).add_modifier(Modifier::BOLD)), // Nord10 - frost dark blue
-        Line::from("   GitHub Issues, JIRA, Confluence, Agile, SCRUM - Team collaboration and delivery"),
-    ]);
-
-    let content_area = layout[1].inner(Margin { horizontal: 2, vertical: 1 });
-    f.render_widget(
-        Paragraph::new(content)
-            .wrap(Wrap { trim: true })
-            .style(Style::default().fg(Color::White)),
-        content_area,
-    );
-
-    // Navigation hint
-    let nav_hint = Paragraph::new("Press Q or Esc to return to main menu")
-        .style(Style::default().fg(Color::DarkGray))
-        .alignment(Alignment::Center);
-    f.render_widget(nav_hint, layout[2]);
+    screen_frame(f, "Technical Skills", Paragraph::new(lines));
 }
 
-fn render_education(f: &mut Frame<'_>) {
-    let area = f.area();
-    
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(5),
-            Constraint::Length(2),
-        ])
-        .split(area);
-
-    // Title
-    let title = Paragraph::new("Education & Training")
-        .style(Style::default().fg(Color::Rgb(136, 192, 208)).add_modifier(Modifier::BOLD)) // Nord8 - frost
-        .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::Rgb(136, 192, 208))));
-    f.render_widget(title, layout[0]);
-
-    // Content
-    let content = Text::from(vec![
-        Line::from(""),
-        Line::from("🎓 BSc. Computing and Psychology").style(Style::default().fg(Color::Rgb(235, 203, 139)).add_modifier(Modifier::BOLD)), // Nord13 - aurora yellow
-        Line::from("   The Open University | 2011 - 2015"),
-        Line::from("   • Comprehensive study of software development and user interface psychology"),
-        Line::from("   • Understanding of both technical implementation and human-computer interaction"),
-        Line::from("   • Foundation in cognitive psychology applied to software design"),
-        Line::from(""),
-        Line::from("⚡ C for Real-Time Developers").style(Style::default().fg(Color::Rgb(163, 190, 140)).add_modifier(Modifier::BOLD)), // Nord14 - aurora green
-        Line::from("   Feabhas, Royal Wootton Bassett | 2016"),
-        Line::from("   • Intensive 5-day course on low-level C programming for embedded systems"),
-        Line::from("   • Real-time systems development with and without RTOS"),
-        Line::from("   • Critical timing analysis and performance optimization techniques"),
-        Line::from(""),
-        Line::from("🔧 Advanced C++ Development").style(Style::default().fg(Color::Rgb(129, 161, 193)).add_modifier(Modifier::BOLD)), // Nord9 - frost blue
-        Line::from("   Feabhas, Royal Wootton Bassett | 2016"),
-        Line::from("   • Advanced C++ programming for microcontroller environments"),
-        Line::from("   • Memory management, templates, and modern C++ features"),
-        Line::from("   • Best practices for embedded systems and performance-critical applications"),
-        Line::from(""),
-        Line::from("📚 Continuous Professional Development"),
-        Line::from("   • Active participation in Rust and systems programming communities"),
-        Line::from("   • Regular attendance at technical conferences and workshops"),
-        Line::from("   • Contribution to open source projects and knowledge sharing"),
-        Line::from("   • Staying current with emerging technologies and industry trends"),
-    ]);
-
-    let content_area = layout[1].inner(Margin { horizontal: 2, vertical: 1 });
-    f.render_widget(
-        Paragraph::new(content)
-            .wrap(Wrap { trim: true })
-            .style(Style::default().fg(Color::White)),
-        content_area,
+fn render_about(f: &mut Frame<'_>) {
+    let lines: Vec<Line> = gc::ABOUT.iter().map(|l| Line::from(*l)).collect();
+    screen_frame(
+        f,
+        "About Me",
+        Paragraph::new(lines).style(Style::default().fg(NORD6)),
     );
-
-    // Navigation hint
-    let nav_hint = Paragraph::new("Press Q or Esc to return to main menu")
-        .style(Style::default().fg(Color::DarkGray))
-        .alignment(Alignment::Center);
-    f.render_widget(nav_hint, layout[2]);
-}
-
-fn render_projects(f: &mut Frame<'_>) {
-    let area = f.area();
-    
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(5),
-            Constraint::Length(2),
-        ])
-        .split(area);
-
-    // Title
-    let title = Paragraph::new("Projects & Contributions")
-        .style(Style::default().fg(Color::Rgb(136, 192, 208)).add_modifier(Modifier::BOLD)) // Nord8 - frost
-        .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::Rgb(136, 192, 208))));
-    f.render_widget(title, layout[0]);
-
-    // Content
-    let content = Text::from(vec![
-        Line::from(""),
-        Line::from("📖 Md-book Combiner").style(Style::default().fg(Color::Rgb(235, 203, 139)).add_modifier(Modifier::BOLD)), // Nord13 - aurora yellow
-        Line::from("   Author | 2023 - Present | github.com/jscarrott"),
-        Line::from(""),
-        Line::from("   • High-value documentation tool for combining multiple mdbook repositories"),
-        Line::from("   • Automated release pipeline for seamless deployment and distribution"),
-        Line::from("   • Rust-based CLI tool with focus on developer experience and performance"),
-        Line::from("   • Solves complex documentation workflow challenges for large projects"),
-        Line::from(""),
-        Line::from("🔧 Rust nRF52 Hardware Abstraction Layer").style(Style::default().fg(Color::Rgb(163, 190, 140)).add_modifier(Modifier::BOLD)), // Nord14 - aurora green
-        Line::from("   Contributor | 2018 - Present | Open Source"),
-        Line::from(""),
-        Line::from("   • Pioneering development of Rust hardware abstraction for Nordic microcontrollers"),
-        Line::from("   • First to successfully run Rust on the nRF52840 chip"),
-        Line::from("   • Contributed to the growing Rust embedded ecosystem and community"),
-        Line::from("   • Advanced embedded systems programming and cross-platform development"),
-        Line::from(""),
-        Line::from("⚙️  Shell Configuration Manager (PshConfigMan)").style(Style::default().fg(Color::Rgb(129, 161, 193)).add_modifier(Modifier::BOLD)), // Nord9 - frost blue
-        Line::from("   Author | 2018 - Present | PowerShell Gallery"),
-        Line::from(""),
-        Line::from("   • Cross-platform shell configuration management for PowerShell and Zsh"),
-        Line::from("   • Leverages distributed version control principles for configuration sync"),
-        Line::from("   • Available as official PowerShell package on PowerShell Gallery"),
-        Line::from("   • Streamlines development environment setup across multiple machines"),
-        Line::from(""),
-        Line::from("🌐 Personal Website").style(Style::default().fg(Color::Rgb(180, 142, 173)).add_modifier(Modifier::BOLD)), // Nord15 - aurora purple
-        Line::from("   • Modern terminal-style interface built with Rust and Ratzilla framework"),
-        Line::from("   • Demonstrates advanced Rust web development capabilities"),
-        Line::from("   • Responsive design with Nord color theme and interactive navigation"),
-        Line::from("   • Showcases systems programming expertise in web context"),
-    ]);
-
-    let content_area = layout[1].inner(Margin { horizontal: 2, vertical: 1 });
-    f.render_widget(
-        Paragraph::new(content)
-            .wrap(Wrap { trim: true })
-            .style(Style::default().fg(Color::White)),
-        content_area,
-    );
-
-    // Navigation hint
-    let nav_hint = Paragraph::new("Press Q or Esc to return to main menu")
-        .style(Style::default().fg(Color::DarkGray))
-        .alignment(Alignment::Center);
-    f.render_widget(nav_hint, layout[2]);
 }
