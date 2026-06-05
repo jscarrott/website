@@ -1,0 +1,9 @@
+[package]
+name = "cvgen"
+version = "0.1.0"
+edition = "2021"
+description = "Generates the website content module and the Typst CV from content/*.md"
+
+[[bin]]
+name = "cvgen"
+path = "src/main.rs"

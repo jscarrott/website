@@ -1,3 +1,7 @@
 
 target/
 dist/
+
+# Compiled CV output (regenerate with `typst compile cv.typ`)
+cv.pdf
+cv-preview.*

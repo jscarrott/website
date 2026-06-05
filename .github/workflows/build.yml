@@ -10,13 +10,15 @@ env:
 
 jobs:
   check:
-    name: Check CV / site sync
+    name: Check generated content is up to date
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Cross-check cv.tex against content.rs
-        run: ./scripts/check-cv-sync.sh
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Verify generated_content.rs and cv.typ match content/
+        run: cargo run --manifest-path tools/cvgen/Cargo.toml -- --check
 
   build:
     needs: check
