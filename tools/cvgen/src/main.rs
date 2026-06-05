@@ -365,6 +365,272 @@ fn emit_typst(
 // Driver
 // ----------------------------------------------------------------------------
 
+// ----------------------------------------------------------------------------
+// HTML emission (accessible, no-JS / low-power fallback site + view toggle)
+// ----------------------------------------------------------------------------
+
+/// Escape text for HTML element content.
+fn esc(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
+fn html_entries(out: &mut String, title: &str, entries: &[Entry]) {
+    out.push_str(&format!("      <section>\n        <h2>{}</h2>\n", esc(title)));
+    for e in entries {
+        out.push_str("        <article class=\"entry\">\n");
+        out.push_str(&format!(
+            "          <h3>{} {}<span class=\"org\"> — {}</span></h3>\n",
+            esc(&e.emoji),
+            esc(&e.title),
+            esc(&e.org)
+        ));
+        out.push_str(&format!(
+            "          <p class=\"meta\">{} · {}</p>\n",
+            esc(&e.date),
+            esc(&e.location)
+        ));
+        out.push_str("          <ul>\n");
+        for b in &e.bullets {
+            if b.lead.is_empty() {
+                out.push_str(&format!("            <li>{}</li>\n", esc(&b.rest)));
+            } else {
+                out.push_str(&format!(
+                    "            <li><strong>{}</strong> {}</li>\n",
+                    esc(&b.lead),
+                    esc(&b.rest)
+                ));
+            }
+        }
+        out.push_str("          </ul>\n        </article>\n");
+    }
+    out.push_str("      </section>\n");
+}
+
+fn html_about(out: &mut String, about: &[String]) {
+    out.push_str("      <section>\n        <h2>About</h2>\n");
+    let mut para: Vec<&str> = Vec::new();
+    let mut list_open = false;
+    for line in about {
+        let t = line.trim();
+        if let Some(item) = t.strip_prefix('•') {
+            if !para.is_empty() {
+                out.push_str(&format!("        <p>{}</p>\n", esc(&para.join(" "))));
+                para.clear();
+            }
+            if !list_open {
+                out.push_str("        <ul>\n");
+                list_open = true;
+            }
+            out.push_str(&format!("          <li>{}</li>\n", esc(item.trim())));
+        } else if t.is_empty() {
+            if !para.is_empty() {
+                out.push_str(&format!("        <p>{}</p>\n", esc(&para.join(" "))));
+                para.clear();
+            }
+            if list_open {
+                out.push_str("        </ul>\n");
+                list_open = false;
+            }
+        } else {
+            if list_open {
+                out.push_str("        </ul>\n");
+                list_open = false;
+            }
+            para.push(t);
+        }
+    }
+    if !para.is_empty() {
+        out.push_str(&format!("        <p>{}</p>\n", esc(&para.join(" "))));
+    }
+    if list_open {
+        out.push_str("        </ul>\n");
+    }
+    out.push_str("      </section>\n");
+}
+
+fn html_skills(out: &mut String, skills: &[Skill]) {
+    out.push_str("      <section>\n        <h2>Skills</h2>\n        <dl class=\"skills\">\n");
+    for s in skills {
+        out.push_str(&format!(
+            "          <dt>{}</dt>\n          <dd>{}</dd>\n",
+            esc(&s.name),
+            esc(&s.items)
+        ));
+    }
+    out.push_str("        </dl>\n      </section>\n");
+}
+
+fn emit_cv_html(
+    profile: &[(String, String)],
+    about: &[String],
+    skills: &[Skill],
+    experience: &[Entry],
+    education: &[Entry],
+    projects: &[Entry],
+) -> String {
+    let first = field(profile, "first_name");
+    let last = field(profile, "last_name");
+    let email = field(profile, "email");
+    let phone = field(profile, "phone");
+    let homepage = field(profile, "homepage");
+    let github = field(profile, "github");
+    let location = field(profile, "location");
+
+    let mut o = String::new();
+    o.push_str("      <header class=\"cv-header\">\n");
+    o.push_str(&format!(
+        "        <h1>{} <span class=\"accent\">{}</span></h1>\n",
+        esc(&first),
+        esc(&last)
+    ));
+    o.push_str(&format!(
+        "        <p class=\"tagline\">{}</p>\n",
+        esc(&field(profile, "cv_position"))
+    ));
+    o.push_str("        <p class=\"contact\">\n");
+    o.push_str(&format!(
+        "          <a href=\"mailto:{}\">{}</a>\n",
+        esc(&email),
+        esc(&email)
+    ));
+    o.push_str(&format!("          <span>{}</span>\n", esc(&phone)));
+    o.push_str(&format!(
+        "          <a href=\"https://{}\">{}</a>\n",
+        esc(&homepage),
+        esc(&homepage)
+    ));
+    o.push_str(&format!(
+        "          <a href=\"https://github.com/{}\">github.com/{}</a>\n",
+        esc(&github),
+        esc(&github)
+    ));
+    o.push_str(&format!("          <span>{}</span>\n", esc(&location)));
+    o.push_str("        </p>\n      </header>\n");
+
+    html_about(&mut o, about);
+    html_entries(&mut o, "Experience", experience);
+    html_skills(&mut o, skills);
+    html_entries(&mut o, "Projects", projects);
+    html_entries(&mut o, "Education", education);
+    o
+}
+
+const PAGE_CSS: &str = r####"
+:root {
+  --nord0:#2e3440; --nord3:#4c566a; --nord4:#d8dee9; --nord6:#eceff4;
+  --frost:#88c0d0; --teal:#8fbcbb; --yellow:#ebcb8b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--nord0); color: var(--nord6);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.55;
+}
+/* view switching, driven by <html data-view> */
+html[data-view="terminal"] #cv { display: none; }
+html[data-view="terminal"] body { height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+html[data-view="plain"] #terminal-root { display: none; }
+/* toggle button */
+#view-toggle {
+  position: fixed; top: 12px; right: 12px; z-index: 1000;
+  font-family: inherit; font-size: 13px; cursor: pointer; color: var(--nord0);
+  background: var(--frost); border: none; padding: 8px 14px; border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+#view-toggle:hover { background: var(--teal); }
+/* plain CV */
+#cv { max-width: 820px; margin: 0 auto; padding: 56px 24px 80px; }
+.cv-header h1 { font-size: 2.4rem; margin: 0 0 4px; font-weight: 700; }
+.cv-header .accent { color: var(--frost); }
+.tagline { color: var(--yellow); margin: 0 0 12px; font-size: 1.05rem; }
+.contact { color: var(--nord4); font-size: .9rem; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.contact a { color: var(--frost); text-decoration: none; }
+.contact a:hover { text-decoration: underline; }
+#cv section { margin-top: 36px; }
+#cv h2 { color: var(--frost); font-size: 1.3rem; border-bottom: 1px solid var(--nord3); padding-bottom: 6px; margin: 0 0 16px; }
+.entry { margin-bottom: 22px; }
+.entry h3 { margin: 0; font-size: 1.05rem; }
+.entry .org { color: var(--nord4); font-weight: 400; }
+.entry .meta { color: var(--nord3); font-size: .85rem; margin: 2px 0 8px; }
+#cv ul { margin: 0; padding-left: 22px; }
+#cv li { margin-bottom: 6px; }
+#cv li strong { color: var(--yellow); font-weight: 600; }
+dl.skills { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+dl.skills dt { color: var(--frost); font-weight: 600; }
+dl.skills dd { margin: 0; }
+@media (max-width: 560px) {
+  dl.skills { grid-template-columns: 1fr; gap: 2px 0; }
+  dl.skills dd { margin-bottom: 8px; }
+  #cv { padding: 56px 18px 64px; }
+  .cv-header h1 { font-size: 2rem; }
+}
+"####;
+
+fn emit_index_html(
+    profile: &[(String, String)],
+    about: &[String],
+    skills: &[Skill],
+    experience: &[Entry],
+    education: &[Entry],
+    projects: &[Entry],
+) -> String {
+    let name = format!(
+        "{} {}",
+        field(profile, "first_name"),
+        field(profile, "last_name")
+    );
+    let position = field(profile, "cv_position");
+    let cv_body = emit_cv_html(profile, about, skills, experience, education, projects);
+
+    let mut o = String::new();
+    o.push_str("<!doctype html>\n<html lang=\"en\">\n<head>\n");
+    o.push_str("  <meta charset=\"UTF-8\" />\n");
+    o.push_str("  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n");
+    o.push_str(&format!("  <title>{} — {}</title>\n", esc(&name), esc(&position)));
+    o.push_str(&format!(
+        "  <meta name=\"description\" content=\"{} — {}. Interactive terminal CV with a plain-text view.\" />\n",
+        esc(&name),
+        esc(&position)
+    ));
+    o.push_str("  <link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/fira_code.min.css\" />\n");
+    o.push_str("  <style>");
+    o.push_str(PAGE_CSS);
+    o.push_str("  </style>\n");
+    // Decide the initial view before first paint (avoids a flash of the wrong one).
+    o.push_str("  <script>\n");
+    o.push_str("    (function () {\n");
+    o.push_str("      var v;\n");
+    o.push_str("      try { v = localStorage.getItem('cvView'); } catch (e) {}\n");
+    o.push_str("      if (v !== 'plain' && v !== 'terminal') {\n");
+    o.push_str("        var coarse = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || window.innerWidth < 700;\n");
+    o.push_str("        v = coarse ? 'plain' : 'terminal';\n");
+    o.push_str("      }\n");
+    o.push_str("      document.documentElement.setAttribute('data-view', v);\n");
+    o.push_str("    })();\n");
+    o.push_str("  </script>\n");
+    o.push_str("</head>\n<body>\n");
+    o.push_str("  <button id=\"view-toggle\" type=\"button\">Plain view</button>\n");
+    o.push_str("  <main id=\"cv\">\n");
+    o.push_str(&cv_body);
+    o.push_str("  </main>\n");
+    o.push_str("  <div id=\"terminal-root\"></div>\n");
+    o.push_str("  <script>\n");
+    o.push_str("    (function () {\n");
+    o.push_str("      var btn = document.getElementById('view-toggle');\n");
+    o.push_str("      var v = document.documentElement.getAttribute('data-view');\n");
+    o.push_str("      btn.textContent = v === 'terminal' ? 'Plain view' : 'Terminal view';\n");
+    o.push_str("      btn.addEventListener('click', function () {\n");
+    o.push_str("        var cur = document.documentElement.getAttribute('data-view');\n");
+    o.push_str("        var next = cur === 'terminal' ? 'plain' : 'terminal';\n");
+    o.push_str("        try { localStorage.setItem('cvView', next); } catch (e) {}\n");
+    o.push_str("        location.reload();\n");
+    o.push_str("      });\n");
+    o.push_str("    })();\n");
+    o.push_str("  </script>\n");
+    o.push_str("</body>\n</html>\n");
+    o
+}
+
 fn parse_profile(text: &str) -> Vec<(String, String)> {
     text.lines()
         .filter_map(|l| l.split_once(':'))
@@ -396,6 +662,10 @@ fn main() {
         (
             root.join("cv.typ"),
             emit_typst(&profile, &skills, &experience, &education, &projects),
+        ),
+        (
+            root.join("jscarrott/index.html"),
+            emit_index_html(&profile, &about, &skills, &experience, &education, &projects),
         ),
     ];
 
