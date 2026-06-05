@@ -8,6 +8,7 @@ mod generated_content;
 use generated_content::{self as gc, PROFILE};
 
 use ratzilla::{
+    backend::canvas::CanvasBackendOptions,
     event::{KeyCode, MouseButton, MouseEventKind},
     ratatui::{
         prelude::*,
@@ -243,11 +244,29 @@ enum ClickAction {
 
 type Regions = RefCell<Vec<(Rect, ClickAction)>>;
 
+/// The active view, read from `<html data-view>` (set by the page's inline
+/// script). In "plain" mode the static HTML CV is shown instead of the terminal.
+fn view_mode() -> Option<String> {
+    web_sys::window()?
+        .document()?
+        .document_element()?
+        .get_attribute("data-view")
+}
+
 fn main() -> io::Result<()> {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
+    // In "plain" view the static HTML CV is shown, so don't start the terminal at
+    // all — this keeps the requestAnimationFrame render loop from running on
+    // phones / low-power devices where the canvas UI is a poor experience.
+    if view_mode().as_deref() == Some("plain") {
+        return Ok(());
+    }
+
     // Canvas backend draws to a single <canvas> rather than one DOM element per
     // cell, which is dramatically faster than the DOM backend on large grids.
-    let backend = CanvasBackend::new()?;
+    // Mount it inside #terminal-root so the page can show/hide it per view.
+    let backend = CanvasBackend::new_with_options(CanvasBackendOptions::new().grid_id("terminal-root"))?;
     let terminal = Terminal::new(backend)?;
 
     let app = Rc::new(RefCell::new(App::new()));

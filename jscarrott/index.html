@@ -1,40 +1,243 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, user-scalable=no"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/fira_code.min.css"
-    />
-    <title>John Scarrott — Senior Software Engineer</title>
-    <meta
-      name="description"
-      content="John Scarrott — Senior Software Engineer specialising in Rust, systems programming, and infrastructure. An interactive terminal-style CV."
-    />
-    <style>
-      body {
-        margin: 0;
-        width: 100%;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        align-content: center;
-        background-color: #2e3440;
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>John Scarrott — Platform Lead · Rust &amp; Systems Engineer</title>
+  <meta name="description" content="John Scarrott — Platform Lead · Rust &amp; Systems Engineer. Interactive terminal CV with a plain-text view." />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/fira_code.min.css" />
+  <style>
+:root {
+  --nord0:#2e3440; --nord3:#4c566a; --nord4:#d8dee9; --nord6:#eceff4;
+  --frost:#88c0d0; --teal:#8fbcbb; --yellow:#ebcb8b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--nord0); color: var(--nord6);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.55;
+}
+/* view switching, driven by <html data-view> */
+html[data-view="terminal"] #cv { display: none; }
+html[data-view="terminal"] body { height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+html[data-view="plain"] #terminal-root { display: none; }
+/* toggle button */
+#view-toggle {
+  position: fixed; top: 12px; right: 12px; z-index: 1000;
+  font-family: inherit; font-size: 13px; cursor: pointer; color: var(--nord0);
+  background: var(--frost); border: none; padding: 8px 14px; border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+#view-toggle:hover { background: var(--teal); }
+/* plain CV */
+#cv { max-width: 820px; margin: 0 auto; padding: 56px 24px 80px; }
+.cv-header h1 { font-size: 2.4rem; margin: 0 0 4px; font-weight: 700; }
+.cv-header .accent { color: var(--frost); }
+.tagline { color: var(--yellow); margin: 0 0 12px; font-size: 1.05rem; }
+.contact { color: var(--nord4); font-size: .9rem; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.contact a { color: var(--frost); text-decoration: none; }
+.contact a:hover { text-decoration: underline; }
+#cv section { margin-top: 36px; }
+#cv h2 { color: var(--frost); font-size: 1.3rem; border-bottom: 1px solid var(--nord3); padding-bottom: 6px; margin: 0 0 16px; }
+.entry { margin-bottom: 22px; }
+.entry h3 { margin: 0; font-size: 1.05rem; }
+.entry .org { color: var(--nord4); font-weight: 400; }
+.entry .meta { color: var(--nord3); font-size: .85rem; margin: 2px 0 8px; }
+#cv ul { margin: 0; padding-left: 22px; }
+#cv li { margin-bottom: 6px; }
+#cv li strong { color: var(--yellow); font-weight: 600; }
+dl.skills { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+dl.skills dt { color: var(--frost); font-weight: 600; }
+dl.skills dd { margin: 0; }
+@media (max-width: 560px) {
+  dl.skills { grid-template-columns: 1fr; gap: 2px 0; }
+  dl.skills dd { margin-bottom: 8px; }
+  #cv { padding: 56px 18px 64px; }
+  .cv-header h1 { font-size: 2rem; }
+}
+  </style>
+  <script>
+    (function () {
+      var v;
+      try { v = localStorage.getItem('cvView'); } catch (e) {}
+      if (v !== 'plain' && v !== 'terminal') {
+        var coarse = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || window.innerWidth < 700;
+        v = coarse ? 'plain' : 'terminal';
       }
-      pre {
-        font-family: "Fira Code", monospace;
-        font-size: 16px;
-        margin: 0px;
-      }
-    </style>
-  </head>
-  <body>
-    <!-- Trunk injects the wasm bootstrap loader here automatically. -->
-  </body>
+      document.documentElement.setAttribute('data-view', v);
+    })();
+  </script>
+</head>
+<body>
+  <button id="view-toggle" type="button">Plain view</button>
+  <main id="cv">
+      <header class="cv-header">
+        <h1>John <span class="accent">Scarrott</span></h1>
+        <p class="tagline">Platform Lead · Rust &amp; Systems Engineer</p>
+        <p class="contact">
+          <a href="mailto:john@scarrotts.uk">john@scarrotts.uk</a>
+          <span>(+44) 7733298950</span>
+          <a href="https://www.jscarrott.com">www.jscarrott.com</a>
+          <a href="https://github.com/jscarrott">github.com/jscarrott</a>
+          <span>Barnstaple, Devon, UK</span>
+        </p>
+      </header>
+      <section>
+        <h2>About</h2>
+        <p>I'm a software engineer and platform lead at RazorSecure, where we build intrusion detection for the rail industry — on-train agents reporting back to a wayside and cloud platform. I set the technical direction across our platforms and am currently leading the migration of our on-train detection agent from Python to Rust.</p>
+        <p>I've been building software professionally for over a decade. I started out in safety-critical embedded systems — helicopter health monitoring written to DO-178 — before moving into high-performance networking, security and cloud-native infrastructure. These days I work mostly in Rust and Python, and I'm at my best on low-level, performance-sensitive problems and the tooling and systems around them.</p>
+        <p>What I tend to focus on:</p>
+        <ul>
+          <li>High-performance, zero-copy network programming in Rust</li>
+          <li>Cloud-native platform and release engineering (Kubernetes, Helm, Terraform)</li>
+          <li>Technical leadership and cross-platform architecture</li>
+          <li>Pragmatic migrations — modernising real systems without big-bang rewrites</li>
+        </ul>
+        <p>Outside work I build things for fun — at the moment a physics simulator for testing an autonomous sailboat — and contribute to open source.</p>
+      </section>
+      <section>
+        <h2>Experience</h2>
+        <article class="entry">
+          <h3>🚀 Senior Rust Software Engineer &amp; Platform Lead<span class="org"> — RazorSecure</span></h3>
+          <p class="meta">December 2019 - Present · Remote</p>
+          <ul>
+            <li><strong>Platform technical lead:</strong> Set the technical direction for the product and author cross-platform roadmaps coordinating the on-train Agent, Frontend and Microservices/Backend platforms, so an architectural decision on one doesn't break another. Work is tracked as GitHub epics through an idea → buy-in → ticketed → planned → done lifecycle, and includes a push-based configuration-management design.</li>
+            <li><strong>Rust rewrite of the on-train detection agent (Python → Rust):</strong> Driving an incremental "strangler-fig" migration that ships one stage per sprint with no big-bang cutover. Built the agent as a multi-call single binary (clap) on a Tokio runtime, with structured async task supervision, `panic=unwind` so a faulty monitor restarts rather than aborting the process, a lifecycle state machine, and self-monitoring with health heartbeats. Reimplemented the full monitor suite to strict parity with the Python agent (network DoS / port-scan / ARP, USB, syslog via journald, Suricata DPI, SNMP, GPS via gpsd, file/inotify, nftables and more) and drove the codebase toward pure-Rust dependencies, dropping C-FFI libraries such as libsnmp and paho-mqtt.</li>
+            <li><strong>High-performance detection core:</strong> Designed and built a zero-copy Rust deep packet inspection library with eBPF (XDP) acceleration, sustaining sub-microsecond latency and 1 million+ packets per second as the basis of the intrusion-detection product, plus an L2-to-L7 firewall for an embedded security gateway protecting critical rail network infrastructure.</li>
+            <li><strong>Cloud portability and on-prem deployment:</strong> Migrated storage and business logic off Google Cloud onto S3-compatible storage and made the entire platform deployable on-prem and on Azure — in-cluster Elasticsearch, Terraform fixes, and removal of cloud-provider-only assumptions across every Helm chart — including air-gapped Kubernetes clusters running alongside the cloud-hosted offering.</li>
+            <li><strong>Deployment and release engineering:</strong> Consolidated dozens of per-microservice Helm deployments into a single platform Helm chart (bringing Redis, QuestDB and RabbitMQ into the chart), moved CI off developer machines into GitHub Actions, and introduced a Harbor OCI registry with Replicated-based on-prem distribution. Built release automation around git-cliff changelogs, Conventional-Commit linting, release actions and grouped Dependabot updates.</li>
+            <li><strong>Data-store performance and platform uplift:</strong> Led deep PostgreSQL alert-store performance work — functional indexes on JSON fields, tsvector search predicates, partition pruning, bulk multi-row inserts and Celery tuning to eliminate out-of-memory failures during large batch jobs — alongside a MySQL 8.4 migration, a Pydantic v2 / FastAPI uplift across services, RabbitMQ 4.2 clustering, QuestDB ingest and memory-leak fixes, and an Elasticsearch migration to a Helm-hosted, tiered deployment with reindex-from-remote.</li>
+            <li><strong>Rail-specific detection and domain features:</strong> Implemented rail geospatial logic (lat/long → ELR plus miles-and-chains) and a range of new monitors and protocol support — Suricata DPI, an SSH honeypot, the TRDP, MVB and EDSA rail protocols, mirrored-traffic and VLAN-strip handling, rate-limiting and time-based event prioritisation — plus a new customer-configuration microservice.</li>
+            <li><strong>Observability:</strong> Built a Grafana proxy architecture with authenticated endpoints and config-map-preloaded dashboards, and instrumented the platform throughout with Datadog APM tracing and statsd metrics.</li>
+            <li><strong>Test and documentation discipline:</strong> Built a multi-tier BDD test harness spanning the agent, processing and integration layers up to end-to-end tests driven through a real MQTT broker, with a JUnit aggregator that produces a Typst PDF test report and parallel Docker-based BDD in CI; established documentation conventions with topical docs and Mermaid / C4 / D2 architecture diagrams, and contributed to open-source Rust libraries for layer-2 network monitoring and flame-graph performance analysis.</li>
+          </ul>
+        </article>
+        <article class="entry">
+          <h3>⚙️ Software Engineer<span class="org"> — Helitune/Beran Instruments</span></h3>
+          <p class="meta">June 2015 - December 2019 · Torrington, North Devon</p>
+          <ul>
+            <li><strong>Next-generation protection and condition monitoring:</strong> Development and systems engineering of a next-generation system for large-plant monitoring. Championed the use of Rust for several of the system modules, running a dockerised signal-processing and logging system on an embedded target — being deployed at the NASA Ames Research Center.</li>
+            <li><strong>Rotor Track and Balance systems:</strong> Developed and maintained a best-in-class RTB system in both carry-on and permanent-fit configurations, written to DO-178 Level C and D.</li>
+            <li><strong>Modular C++ signal-processing system:</strong> Designed an all-new, module-based C++ signal-processing system that let existing and new products move onto a single platform. Being easily testable and replaceable, it shortened development time, made the system more robust, and fit well with agile working.</li>
+            <li><strong>C#/WPF applications:</strong> Developed and maintained several large (100,000+ line) C#/WPF projects across the whole software lifecycle, and built a configuration-driven automated test application that saved hundreds of hours and caught production faults before release.</li>
+            <li><strong>Version control and CI:</strong> Led the company's move from TFS to Git — teaching teams distributed version control and introducing code review — and built the CI workflow around it with packer/vagrant, vSphere and TeamCity.</li>
+          </ul>
+        </article>
+      </section>
+      <section>
+        <h2>Skills</h2>
+        <dl class="skills">
+          <dt>Systems Programming</dt>
+          <dd>Rust (Tokio async, FFI elimination, multi-call binaries), C++, C</dd>
+          <dt>Backend &amp; APIs</dt>
+          <dd>Python (FastAPI, Pydantic v2, Celery)</dd>
+          <dt>Databases</dt>
+          <dd>PostgreSQL (advanced indexing &amp; partition tuning), MySQL, QuestDB, Elasticsearch, Redis, RabbitMQ</dd>
+          <dt>Containerisation &amp; Orchestration</dt>
+          <dd>Docker, Podman, Kubernetes, Helm, GKE, AKS</dd>
+          <dt>Infrastructure &amp; Release Engineering</dt>
+          <dd>Terraform/Terragrunt, Skaffold, Pants, Replicated, Harbor, GitHub Actions, ArgoCD, FluxCD</dd>
+          <dt>Observability</dt>
+          <dd>Grafana, Datadog APM, statsd</dd>
+          <dt>Domain &amp; Protocols</dt>
+          <dd>Rail (TRDP, MVB, EDSA, ELR/miles-and-chains), DPI/Suricata, SNMP, MQTT, ARP, GPS/NMEA/gpsd</dd>
+          <dt>Engineering Practice</dt>
+          <dd>Strangler-fig migration, TDD &amp; BDD (Pytest, cargo test), Conventional Commits &amp; release automation, ADRs, C4/D2 architecture modelling, secure-by-design</dd>
+          <dt>Leadership</dt>
+          <dd>Cross-platform roadmapping, technical-direction setting, migration &amp; rollback planning, effort estimation</dd>
+          <dt>Project Organisation</dt>
+          <dd>GitHub Issues &amp; Epics, JIRA, Confluence, Agile/SCRUM</dd>
+          <dt>Previously (not current)</dt>
+          <dd>C#/WPF, F#, Java, PowerShell, SQL Server, NUnit, GoogleTest/GoogleMock, TeamCity, vSphere, packer/vagrant</dd>
+        </dl>
+      </section>
+      <section>
+        <h2>Projects</h2>
+        <article class="entry">
+          <h3>⛵ Author<span class="org"> — STDA Sailboat Simulator</span></h3>
+          <p class="meta">2023- · GitHub</p>
+          <ul>
+            <li>Building a physics-based simulator to design, develop and test an autonomous sailboat before deploying to real hardware.</li>
+            <li>Ported the 6-degree-of-freedom (6-DOF) dynamics core to Rust from a published autonomous-sailing model (Sailing Team Darmstadt, IRSC 2018), and extended it with route-following, real nautical-chart navigation and a speed-polar calibration instrument.</li>
+            <li>Rust and Python, working toward calibrating the model against real-world data for a hardware retrofit and autonomous-control trials.</li>
+          </ul>
+        </article>
+        <article class="entry">
+          <h3>🏠 Author<span class="org"> — Homebox Home Assistant Add-on</span></h3>
+          <p class="meta">2025- · GitHub</p>
+          <ul>
+            <li>Home Assistant add-on that packages Homebox (a self-hosted home inventory tool) for one-click installation through the Home Assistant Supervisor.</li>
+            <li>My most-starred public project, used by the wider Home Assistant community.</li>
+            <li>Maintained add-on repository with a containerised build and release flow.</li>
+          </ul>
+        </article>
+        <article class="entry">
+          <h3>📖 Author<span class="org"> — Md-book combiner</span></h3>
+          <p class="meta">2023- · Github</p>
+          <ul>
+            <li>Simple high-value tool for combining mdbooks from multiple repositories into one</li>
+            <li>Leveraged automated releases to make deployment simple</li>
+            <li>High complexity to value ratio for personal usecase</li>
+          </ul>
+        </article>
+        <article class="entry">
+          <h3>🔌 Author<span class="org"> — jjui-pm</span></h3>
+          <p class="meta">2026- · GitHub</p>
+          <ul>
+            <li>CLI plugin manager, written in Rust, for jjui — a TUI for the Jujutsu (jj) version-control system.</li>
+            <li>Manages Lua plugins by reading and modifying the jjui config file; installable via cargo.</li>
+            <li>Reflects deep day-to-day use of Jujutsu and the Rust terminal-UI ecosystem.</li>
+          </ul>
+        </article>
+        <article class="entry">
+          <h3>🔧 Contributor<span class="org"> — Rust nRF52 Hal</span></h3>
+          <p class="meta">2018- · Github</p>
+          <ul>
+            <li>Experienced developing at the cutting edge, implementing Rust only hardware abstraction on a micro-controller.</li>
+            <li>Being the first to run Rust on the nRF52840 chip proved a real problem solving challenge.</li>
+          </ul>
+        </article>
+      </section>
+      <section>
+        <h2>Education</h2>
+        <article class="entry">
+          <h3>🎓 BSc. in Computing and Psychology<span class="org"> — The Open University</span></h3>
+          <p class="meta">2011 - 2015 · England</p>
+          <ul>
+            <li>Software development and the psychology behind user interface design</li>
+          </ul>
+        </article>
+        <article class="entry">
+          <h3>⚡ C for Real-Time Developers<span class="org"> — Feabhas</span></h3>
+          <p class="meta">2016 · Royal Wootton Bassett</p>
+          <ul>
+            <li>Intensive five day course on writing low-level C with and without a real time operating system.</li>
+          </ul>
+        </article>
+        <article class="entry">
+          <h3>🔧 Advanced C++ Development<span class="org"> — Feabhas</span></h3>
+          <p class="meta">2016 · Royal Wootton Bassett</p>
+          <ul>
+            <li>Intensive five day course on writing C++ on micro-controllers.</li>
+            <li>Learned many of the pitfalls with the C++ language.</li>
+            <li>Learned how to leverage the more technical features of the language.</li>
+          </ul>
+        </article>
+      </section>
+  </main>
+  <div id="terminal-root"></div>
+  <script>
+    (function () {
+      var btn = document.getElementById('view-toggle');
+      var v = document.documentElement.getAttribute('data-view');
+      btn.textContent = v === 'terminal' ? 'Plain view' : 'Terminal view';
+      btn.addEventListener('click', function () {
+        var cur = document.documentElement.getAttribute('data-view');
+        var next = cur === 'terminal' ? 'plain' : 'terminal';
+        try { localStorage.setItem('cvView', next); } catch (e) {}
+        location.reload();
+      });
+    })();
+  </script>
+</body>
 </html>
