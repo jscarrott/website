@@ -6,6 +6,4 @@ date: 2023-
 emoji: "📖"
 accent: yellow
 ---
-- Simple high-value tool for combining mdbooks from multiple repositories into one
-- Leveraged automated releases to make deployment simple
-- High complexity to value ratio for personal usecase
+- Small tool that combines mdBooks from multiple repositories into one site, shipped through automated releases.

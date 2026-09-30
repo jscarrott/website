@@ -258,12 +258,14 @@ const TYPST_HELPERS: &str = r###"#set page(paper: "a4", margin: (left: 1.4cm, ri
 #let accent = rgb("#27ae60")
 #let muted = rgb("#5d5d5d")
 
+// Headings are sticky so they never end up alone at the bottom of a page.
 #let section(title) = {
   v(8pt)
-  text(size: 13pt, weight: "bold", fill: accent, smallcaps(title))
-  v(1pt)
-  line(length: 100%, stroke: 0.6pt + accent)
-  v(3pt)
+  block(sticky: true, below: 6pt, {
+    text(size: 13pt, weight: "bold", fill: accent, smallcaps(title))
+    v(1pt)
+    line(length: 100%, stroke: 0.6pt + accent)
+  })
 }
 
 #let skill(name, items) = {
@@ -276,9 +278,13 @@ const TYPST_HELPERS: &str = r###"#set page(paper: "a4", margin: (left: 1.4cm, ri
 }
 
 #let entry(title, org, location, date, body) = {
-  block(below: 8pt, breakable: false, {
-    grid(columns: (1fr, auto), text(weight: "bold", title) + text(", " + org), text(fill: muted, date))
-    text(fill: muted, style: "italic", size: 9pt, location)
+  // Long entries may break between bullets; the title stays with its first one.
+  block(below: 8pt, {
+    block(sticky: true, below: 0.65em, {
+      grid(columns: (1fr, auto), text(weight: "bold", title) + text(", " + org), text(fill: muted, date))
+      text(fill: muted, style: "italic", size: 9pt, location)
+    })
+    show list.item: it => block(breakable: false, it)
     body
   })
 }

@@ -1,13 +1,15 @@
 ---
 title: Skills
 ---
-- Systems Programming: Rust (Tokio async, FFI elimination, multi-call binaries), C++, C
-- Backend & APIs: Python (FastAPI, Pydantic v2, Celery)
-- Databases: PostgreSQL (advanced indexing & partition tuning), MySQL, QuestDB, Elasticsearch, Redis, RabbitMQ
-- Containerisation & Orchestration: Docker, Podman, Kubernetes, Helm, GKE, AKS
-- Infrastructure & Release Engineering: Terraform/Terragrunt, Skaffold, Pants, Replicated, Harbor, GitHub Actions, ArgoCD, FluxCD
+- Systems Programming: Rust (Tokio async, FFI elimination, multi-call binaries, eBPF/XDP), C++, C
+- Rust Applications & UI: Loco, GPUI desktop apps, ratatui TUIs, WebAssembly (ratzilla)
+- Backend & APIs: Python (FastAPI, Pydantic v2, Celery, uv), MCP servers, OAuth 2.0/PKCE & SSO
+- Frontend: TypeScript, React (Mantine, TanStack Query, React Router), Vite, Playwright
+- Databases: PostgreSQL (advanced indexing & partition tuning), MySQL, SQLite, QuestDB, Elasticsearch, Redis, RabbitMQ
+- Containerisation & Orchestration: Docker, Podman, Kubernetes, Helm, GKE, AKS, Talos Linux, Rook-Ceph, MetalLB
+- Infrastructure & Release Engineering: Terraform/Terragrunt, Skaffold, Pants, Replicated, Harbor, GitHub Actions, ArgoCD, FluxCD, SOPS, bors-ng merge queues, SonarCloud
 - Observability: Grafana, Datadog APM, statsd
-- Domain & Protocols: Rail (TRDP, MVB, EDSA, ELR/miles-and-chains), DPI/Suricata, SNMP, MQTT, ARP, GPS/NMEA/gpsd
+- Domain & Protocols: Rail network protocols, ELR/miles-and-chains, DPI/Suricata, SNMP, MQTT, ARP, GPS/NMEA/gpsd
 - Engineering Practice: Strangler-fig migration, TDD & BDD (Pytest, cargo test), Conventional Commits & release automation, ADRs, C4/D2 architecture modelling, secure-by-design
 - Leadership: Cross-platform roadmapping, technical-direction setting, migration & rollback planning, effort estimation
 - Project Organisation: GitHub Issues & Epics, JIRA, Confluence, Agile/SCRUM
