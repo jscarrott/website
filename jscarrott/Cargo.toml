@@ -1,15 +1,16 @@
 [package]
 name = "jscarrott"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 console_error_panic_hook = "0.1.7"
-ratzilla = "0.3.0"
+ratzilla = "0.3.1"
 # ratatui-core (via ratzilla 0.3 → ratatui 0.30) needs a critical-section impl;
 # wasm32-unknown-unknown has none by default, leaving `env` imports that break
 # wasm instantiation. The `std` feature registers a std-backed implementation.
 critical-section = { version = "1.2", features = ["std"] }
-# Used to map mouse-click pixel coordinates onto terminal cells (ratzilla
-# re-exports web-sys, but we enable the DOM-geometry features we need here).
-web-sys = { version = "0.3", features = ["Window", "Document", "Element", "DomRect"] }
+wasm-bindgen-futures = "0.4"
+# ratzilla re-exports web-sys; enable the extra APIs used here (focusing the
+# canvas, and awaiting the web font before the WebGL2 glyph atlas is built).
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "FontFaceSet", "console"] }

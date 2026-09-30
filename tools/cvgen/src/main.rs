@@ -528,7 +528,11 @@ body {
 }
 /* view switching, driven by <html data-view> */
 html[data-view="terminal"] #cv { display: none; }
-html[data-view="terminal"] body { height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+html[data-view="terminal"] body { height: 100dvh; overflow: hidden; }
+/* the terminal fills the viewport; the WebGL2 backend re-measures the canvas each
+   frame, so resizing the window reflows the grid */
+#terminal-root { width: 100vw; height: 100dvh; }
+#terminal-root canvas { display: block; width: 100%; height: 100%; outline: none; }
 html[data-view="plain"] #terminal-root { display: none; }
 /* toggle button */
 #view-toggle {

@@ -8,14 +8,25 @@ mod generated_content;
 use generated_content::{self as gc, PROFILE};
 
 use ratzilla::{
-    backend::canvas::CanvasBackendOptions,
+    backend::{
+        canvas::CanvasBackendOptions,
+        webgl2::{FontAtlasConfig, WebGl2BackendOptions},
+    },
     event::{KeyCode, MouseButton, MouseEventKind},
     ratatui::{
+        backend::Backend,
         prelude::*,
         widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
     },
-    web_sys, CanvasBackend, WebRenderer,
+    web_sys::{self, wasm_bindgen::JsCast},
+    CanvasBackend, WebEventHandler, WebGl2Backend, WebRenderer,
 };
+
+/// Terminal font (loaded by index.html from the Fira Code CDN stylesheet).
+const FONT_FAMILY: &str = "Fira Code";
+const FONT_SIZE: f32 = 16.0;
+/// Element the terminal canvas is mounted in; index.html sizes it to the viewport.
+const ROOT_ID: &str = "terminal-root";
 
 // Nord palette ----------------------------------------------------------------
 const NORD0: Color = Color::Rgb(46, 52, 64); // polar night (background)
@@ -223,6 +234,29 @@ impl App {
         *self = App::new();
     }
 
+    /// Move the selection to whatever the pointer is over. Only single-row
+    /// items follow the pointer: multi-line highlights can be partly clipped,
+    /// and selecting one would scroll the list out from under the cursor.
+    fn hover(&mut self, action: ClickAction) {
+        match action {
+            ClickAction::Goto(s) => {
+                if let Some(i) = Screen::all().iter().position(|x| *x == s) {
+                    self.selected_menu = i;
+                }
+            }
+            ClickAction::OpenEntry(i) => self.selected_entry = i,
+            ClickAction::OpenBullet(_) => {}
+        }
+    }
+
+    fn activate(&mut self, action: ClickAction) {
+        match action {
+            ClickAction::Goto(s) => self.goto_section(s),
+            ClickAction::OpenEntry(i) => self.open_entry(i),
+            ClickAction::OpenBullet(i) => self.open_bullet(i),
+        }
+    }
+
     /// True when the active view is a free-scrolling text view (focus / About /
     /// Skills) rather than a selectable list.
     fn is_scroll_view(&self) -> bool {
@@ -244,23 +278,6 @@ enum ClickAction {
 
 type Regions = RefCell<Vec<(Rect, ClickAction)>>;
 
-/// Viewport size in CSS pixels, used to size the terminal canvas (the backend
-/// otherwise measures the empty #terminal-root wrapper as 0x0).
-fn window_inner_size() -> (u32, u32) {
-    let win = web_sys::window();
-    let w = win
-        .as_ref()
-        .and_then(|w| w.inner_width().ok())
-        .and_then(|v| v.as_f64())
-        .unwrap_or(1024.0);
-    let h = win
-        .as_ref()
-        .and_then(|w| w.inner_height().ok())
-        .and_then(|v| v.as_f64())
-        .unwrap_or(768.0);
-    (w as u32, h as u32)
-}
-
 /// The active view, read from `<html data-view>` (set by the page's inline
 /// script). In "plain" mode the static HTML CV is shown instead of the terminal.
 fn view_mode() -> Option<String> {
@@ -270,32 +287,75 @@ fn view_mode() -> Option<String> {
         .get_attribute("data-view")
 }
 
-fn main() -> io::Result<()> {
+fn main() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
     // In "plain" view the static HTML CV is shown, so don't start the terminal at
     // all — this keeps the requestAnimationFrame render loop from running on
     // phones / low-power devices where the canvas UI is a poor experience.
     if view_mode().as_deref() == Some("plain") {
-        return Ok(());
+        return;
     }
 
-    // Canvas backend draws to a single <canvas> rather than one DOM element per
-    // cell, which is dramatically faster than the DOM backend on large grids.
-    // Mount it inside #terminal-root so the page can show/hide it per view, and
-    // size it to the viewport explicitly — with a grid_id but no size the backend
-    // falls back to the parent's client size, and #terminal-root starts empty
-    // (0x0), which would leave the terminal blank.
-    let backend = CanvasBackend::new_with_options(
-        CanvasBackendOptions::new()
-            .grid_id("terminal-root")
-            .size(window_inner_size()),
-    )?;
-    let terminal = Terminal::new(backend)?;
+    // The WebGL2 backend rasterises glyphs from the page font on demand, so wait
+    // for Fira Code first — otherwise the cell size is measured (and glyphs are
+    // cached) using the browser's fallback monospace font.
+    wasm_bindgen_futures::spawn_local(async {
+        load_font().await;
+        start().expect("failed to start terminal");
+    });
+}
 
+async fn load_font() {
+    let Some(document) = web_sys::window().and_then(|w| w.document()) else {
+        return;
+    };
+    let promise = document.fonts().load(&format!("{FONT_SIZE}px \"{FONT_FAMILY}\""));
+    let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+}
+
+/// Create the backend and hand it to the app. WebGL2 is ratzilla's recommended
+/// backend (GPU-rendered, full emoji support, clickable URLs); Canvas 2D is kept
+/// as a fallback for browsers without WebGL2.
+fn start() -> io::Result<()> {
+    let webgl = WebGl2Backend::new_with_options(
+        WebGl2BackendOptions::new()
+            .grid_id(ROOT_ID)
+            .font_atlas_config(FontAtlasConfig::dynamic(&[FONT_FAMILY], FONT_SIZE))
+            .canvas_padding_color(NORD0)
+            // Let index.html's CSS size the canvas to the viewport; the backend
+            // then re-measures it every frame, so window resizes just work.
+            .disable_auto_css_resize()
+            .enable_hyperlinks(),
+    );
+    match webgl {
+        Ok(backend) => run(Terminal::new(backend)?),
+        Err(e) => {
+            web_sys::console::warn_1(&format!("WebGL2 unavailable ({e}); using canvas").into());
+            let backend = CanvasBackend::new_with_options(CanvasBackendOptions::new().grid_id(ROOT_ID))?;
+            run(Terminal::new(backend)?)
+        }
+    }
+}
+
+/// Give the terminal canvas keyboard focus; ratzilla listens for keys on the
+/// canvas itself rather than the whole document.
+fn focus_terminal() {
+    let canvas = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.query_selector(&format!("#{ROOT_ID} canvas")).ok().flatten())
+        .and_then(|el| el.dyn_into::<web_sys::HtmlElement>().ok());
+    if let Some(canvas) = canvas {
+        let _ = canvas.focus();
+    }
+}
+
+fn run<B>(mut terminal: Terminal<B>) -> io::Result<()>
+where
+    B: Backend + WebEventHandler + 'static,
+{
     let app = Rc::new(RefCell::new(App::new()));
     let regions: Rc<Regions> = Rc::new(RefCell::new(Vec::new()));
-    let grid_size: Rc<Cell<(u16, u16)>> = Rc::new(Cell::new((0, 0)));
     // Maximum scroll offset for the current view, computed each render so the
     // key handler can clamp downward scrolling at the bottom of the content.
     let scroll_max: Rc<Cell<u16>> = Rc::new(Cell::new(0));
@@ -343,6 +403,14 @@ fn main() -> io::Result<()> {
                         app.step_selection(false);
                     }
                 }
+                KeyCode::PageDown if app.is_scroll_view() => {
+                    app.scroll = (app.scroll + 10).min(scroll_max.get());
+                }
+                KeyCode::PageUp if app.is_scroll_view() => {
+                    app.scroll = app.scroll.saturating_sub(10);
+                }
+                KeyCode::Home if app.is_scroll_view() => app.scroll = 0,
+                KeyCode::End if app.is_scroll_view() => app.scroll = scroll_max.get(),
                 KeyCode::Char('1') => app.goto_section(Screen::About),
                 KeyCode::Char('2') => app.goto_section(Screen::Experience),
                 KeyCode::Char('3') => app.goto_section(Screen::Skills),
@@ -351,77 +419,46 @@ fn main() -> io::Result<()> {
                 _ => {}
             }
         }
-    });
+    })?;
 
+    // Mouse events arrive in terminal grid coordinates, so they can be
+    // hit-tested directly against the regions recorded during the last render.
     terminal.on_mouse_event({
         let app = app.clone();
         let regions = regions.clone();
-        let grid_size = grid_size.clone();
         move |ev| {
-            if ev.event != MouseEventKind::Pressed || ev.button != MouseButton::Left {
-                return;
-            }
+            let regions = regions.borrow();
+            let pos = Position::new(ev.col, ev.row);
+            let hit = regions
+                .iter()
+                .find(|(rect, _)| rect.contains(pos))
+                .map(|(_, action)| *action);
             let mut app = app.borrow_mut();
-            if let Some((col, row)) = pixel_to_cell(ev.x, ev.y, grid_size.get()) {
-                for (rect, action) in regions.borrow().iter() {
-                    if rect.x <= col
-                        && col < rect.x + rect.width
-                        && rect.y <= row
-                        && row < rect.y + rect.height
-                    {
-                        match action {
-                            ClickAction::Goto(s) => app.goto_section(*s),
-                            ClickAction::OpenEntry(i) => app.open_entry(*i),
-                            ClickAction::OpenBullet(i) => app.open_bullet(*i),
-                        }
-                        return;
+            match ev.kind {
+                MouseEventKind::Moved => {
+                    if let Some(action) = hit {
+                        app.hover(action);
                     }
                 }
-            }
-            // A click that misses every region on a screen with no interactive
-            // regions (focus / About / Skills) steps back one level.
-            if regions.borrow().is_empty() {
-                app.back();
+                // ButtonUp rather than SingleClick: the WebGL2 backend only
+                // reports raw button transitions.
+                MouseEventKind::ButtonUp(MouseButton::Left) => match hit {
+                    Some(action) => app.activate(action),
+                    // A click on a screen with no interactive regions
+                    // (focus / About / Skills) steps back one level.
+                    None if regions.is_empty() => app.back(),
+                    None => {}
+                },
+                _ => {}
             }
         }
-    });
+    })?;
 
-    terminal.draw_web({
-        let app = app.clone();
-        let regions = regions.clone();
-        let grid_size = grid_size.clone();
-        let scroll_max = scroll_max.clone();
-        move |f| {
-            grid_size.set((f.area().width, f.area().height));
-            ui(f, &app.borrow(), &regions, &scroll_max);
-        }
-    });
+    focus_terminal();
+
+    terminal.draw_web(move |f| ui(f, &app.borrow(), &regions, &scroll_max));
 
     Ok(())
-}
-
-/// Map a viewport pixel coordinate to a terminal cell using the canvas bounding
-/// box and the current grid size (in cells). Returns `None` if outside the grid.
-fn pixel_to_cell(x: u32, y: u32, (cols, rows): (u16, u16)) -> Option<(u16, u16)> {
-    if cols == 0 || rows == 0 {
-        return None;
-    }
-    let canvas = web_sys::window()?
-        .document()?
-        .query_selector("canvas")
-        .ok()??;
-    let rect = canvas.get_bounding_client_rect();
-    let cell_w = rect.width() / cols as f64;
-    let cell_h = rect.height() / rows as f64;
-    if cell_w <= 0.0 || cell_h <= 0.0 {
-        return None;
-    }
-    let col = ((x as f64 - rect.left()) / cell_w).floor();
-    let row = ((y as f64 - rect.top()) / cell_h).floor();
-    if col < 0.0 || row < 0.0 || col >= cols as f64 || row >= rows as f64 {
-        return None;
-    }
-    Some((col as u16, row as u16))
 }
 
 // Scroll bookkeeping ----------------------------------------------------------
@@ -564,6 +601,10 @@ fn footer(f: &mut Frame<'_>, area: Rect, hint: &str) {
     );
 }
 
+fn link(url: String) -> Span<'static> {
+    Span::styled(url, Style::default().fg(FROST).add_modifier(Modifier::UNDERLINED))
+}
+
 fn render_welcome(f: &mut Frame<'_>, app: &App, regions: &Regions) {
     let area = f.area();
 
@@ -581,10 +622,13 @@ fn render_welcome(f: &mut Frame<'_>, app: &App, regions: &Regions) {
         Line::from(PROFILE.name).style(Style::default().fg(FROST).add_modifier(Modifier::BOLD)),
         Line::from(PROFILE.position).style(Style::default().fg(Color::Rgb(235, 203, 139))),
         Line::from(""),
-        Line::from(format!(
-            "📧 {}  🌐 {}  💼 {}",
-            PROFILE.email, PROFILE.homepage, PROFILE.github
-        )),
+        // Full https:// URLs so the WebGL2 backend makes them clickable.
+        Line::from(vec![
+            Span::raw(format!("📧 {}  🌐 ", PROFILE.email)),
+            link(format!("https://{}", PROFILE.homepage)),
+            Span::raw("  💼 "),
+            link(format!("https://{}", PROFILE.github)),
+        ]),
         Line::from(format!("📱 {}  📍 {}", PROFILE.phone, PROFILE.location)),
         Line::from(""),
     ]);
