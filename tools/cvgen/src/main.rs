@@ -560,7 +560,15 @@ html[data-view="terminal"] body { height: 100dvh; overflow: hidden; }
 /* the terminal fills the viewport; the WebGL2 backend re-measures the canvas each
    frame, so resizing the window reflows the grid */
 #terminal-root { width: 100vw; height: 100dvh; }
-#terminal-root canvas { display: block; width: 100%; height: 100%; outline: none; }
+#terminal-root canvas {
+  display: block; width: 100%; height: 100%; outline: none;
+  /* the terminal handles swipes and taps itself: no browser scroll/zoom, no
+     long-press text selection or callout menu */
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+/* the running terminal has its own Plain view button; this one stays only as a
+   way out if the terminal fails to start */
+html[data-view="terminal"][data-terminal="ready"] #view-toggle { display: none; }
 html[data-view="plain"] #terminal-root { display: none; }
 /* toggle button */
 #view-toggle {
@@ -633,10 +641,7 @@ fn emit_index_html(
     o.push_str("    (function () {\n");
     o.push_str("      var v;\n");
     o.push_str("      try { v = localStorage.getItem('cvView'); } catch (e) {}\n");
-    o.push_str("      if (v !== 'plain' && v !== 'terminal') {\n");
-    o.push_str("        var coarse = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || window.innerWidth < 700;\n");
-    o.push_str("        v = coarse ? 'plain' : 'terminal';\n");
-    o.push_str("      }\n");
+    o.push_str("      if (v !== 'plain' && v !== 'terminal') v = 'terminal';\n");
     o.push_str("      document.documentElement.setAttribute('data-view', v);\n");
     o.push_str("    })();\n");
     o.push_str("  </script>\n");

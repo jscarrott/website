@@ -36,7 +36,6 @@ use unicode_width::UnicodeWidthStr;
 
 /// Terminal font (loaded by index.html from the Fira Code CDN stylesheet).
 const FONT_FAMILY: &str = "Fira Code";
-const FONT_SIZE: f32 = 16.0;
 /// Element the terminal canvas is mounted in; index.html sizes it to the viewport.
 const ROOT_ID: &str = "terminal-root";
 
@@ -47,6 +46,7 @@ const NORD4: Color = Color::Rgb(216, 222, 233); // snow storm (dim)
 const NORD6: Color = Color::Rgb(236, 239, 244); // snow storm (body text)
 const FROST: Color = Color::Rgb(136, 192, 208); // Nord8 (headings)
 const TEAL: Color = Color::Rgb(143, 188, 187); // Nord7
+const BUTTON: Color = Color::Rgb(67, 76, 94); // Nord2
 
 /// Resolve a content `accent` name (set in the markdown frontmatter) to a Nord
 /// aurora colour.
@@ -371,7 +371,14 @@ impl App {
                 }
             }
             ClickAction::OpenEntry(i) => self.selected_entry = i,
-            ClickAction::OpenBullet(_) | ClickAction::OpenDemo | ClickAction::Toy(_) => {}
+            ClickAction::OpenBullet(_)
+            | ClickAction::OpenDemo
+            | ClickAction::Toy(_)
+            | ClickAction::Back
+            | ClickAction::Home
+            | ClickAction::PlainView
+            | ClickAction::Steer(_)
+            | ClickAction::Autopilot => {}
         }
     }
 
@@ -381,8 +388,14 @@ impl App {
             ClickAction::OpenEntry(i) => self.open_entry(i),
             ClickAction::OpenBullet(i) => self.open_bullet(i),
             ClickAction::OpenDemo => self.open_demo(),
-            // Toys are poked by the mouse handler, which knows where they are.
-            ClickAction::Toy(_) => {}
+            ClickAction::Back => self.back(),
+            ClickAction::Home => self.go_home(),
+            // Toys, the helm and the view switch are handled by the mouse
+            // handler, which owns the state they act on.
+            ClickAction::Toy(_)
+            | ClickAction::PlainView
+            | ClickAction::Steer(_)
+            | ClickAction::Autopilot => {}
         }
     }
 
@@ -406,6 +419,12 @@ enum ClickAction {
     /// Open the section's demo entry straight at the helm.
     OpenDemo,
     Toy(toys::Toy),
+    // Footer buttons, so everything works by touch as well as by key.
+    Back,
+    Home,
+    PlainView,
+    Steer(i8),
+    Autopilot,
 }
 
 type Regions = RefCell<Vec<(Rect, ClickAction)>>;
@@ -422,9 +441,8 @@ fn view_mode() -> Option<String> {
 fn main() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-    // In "plain" view the static HTML CV is shown, so don't start the terminal at
-    // all — this keeps the requestAnimationFrame render loop from running on
-    // phones / low-power devices where the canvas UI is a poor experience.
+    // In "plain" view (the visitor's choice) the static HTML CV is shown, so
+    // don't start the terminal or its render loop at all.
     if view_mode().as_deref() == Some("plain") {
         return;
     }
@@ -444,8 +462,18 @@ async fn load_font() {
     };
     let promise = document
         .fonts()
-        .load(&format!("{FONT_SIZE}px \"{FONT_FAMILY}\""));
+        .load(&format!("{}px \"{FONT_FAMILY}\"", font_size()));
     let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+}
+
+/// Terminal font size: smaller on phones so a useful number of columns fit
+/// (about 48 on a 390px-wide screen).
+fn font_size() -> f32 {
+    let width = web_sys::window()
+        .and_then(|w| w.inner_width().ok())
+        .and_then(|v| v.as_f64())
+        .unwrap_or(1024.0);
+    if width < 600.0 { 13.0 } else { 16.0 }
 }
 
 /// Create the backend and hand it to the app. WebGL2 is ratzilla's recommended
@@ -455,7 +483,7 @@ fn start() -> io::Result<()> {
     let webgl = WebGl2Backend::new_with_options(
         WebGl2BackendOptions::new()
             .grid_id(ROOT_ID)
-            .font_atlas_config(FontAtlasConfig::dynamic(&[FONT_FAMILY], FONT_SIZE))
+            .font_atlas_config(FontAtlasConfig::dynamic(&[FONT_FAMILY], font_size()))
             .canvas_padding_color(NORD0)
             // Let index.html's CSS size the canvas to the viewport; the backend
             // then re-measures it every frame, so window resizes just work.
@@ -682,33 +710,98 @@ fn listen<E: FromWasmAbi + 'static>(
     closure.forget();
 }
 
-/// Mouse-wheel / trackpad scrolling, which neither ratzilla backend reports.
-/// Deltas are accumulated and converted into the same steps as ↑/↓, so a
-/// trackpad's stream of small deltas and a wheel's few large ones feel alike.
-fn wheel_handler(app: Rc<RefCell<App>>, scroll_max: Rc<Cell<u16>>) -> impl FnMut(WheelEvent) {
+/// Turns scroll distances (wheel deltas, finger drags) into the same steps as
+/// ↑/↓, accumulating so many small deltas and a few large ones feel alike.
+#[derive(Default)]
+struct Scroller {
+    pending: f64,
+}
+
+impl Scroller {
+    /// Pixels per step in a reading view (one line).
     const LINE_PX: f64 = 20.0;
-    let mut pending = 0.0f64;
-    move |ev: WheelEvent| {
-        ev.prevent_default();
-        let mut app = app.borrow_mut();
-        let delta = match ev.delta_mode() {
-            WheelEvent::DOM_DELTA_LINE => ev.delta_y() * LINE_PX,
-            WheelEvent::DOM_DELTA_PAGE => ev.delta_y() * LINE_PX * 20.0,
-            _ => ev.delta_y(),
-        };
-        // Reading views scroll a line per step; menus and lists move a whole
-        // item, so they need a bigger push per step.
+
+    /// `item_px` is the distance per step in menus and lists, which move a
+    /// whole item at a time.
+    fn push(&mut self, app: &mut App, delta_px: f64, item_px: f64, scroll_max: u16) {
         let per_step = if app.is_scroll_view() {
-            LINE_PX
+            Self::LINE_PX
         } else {
-            3.0 * LINE_PX
+            item_px
         };
-        pending += delta;
-        while pending.abs() >= per_step {
-            app.step(pending > 0.0, scroll_max.get());
-            pending -= per_step.copysign(pending);
+        self.pending += delta_px;
+        while self.pending.abs() >= per_step {
+            app.step(self.pending > 0.0, scroll_max);
+            self.pending -= per_step.copysign(self.pending);
         }
     }
+}
+
+/// Mouse-wheel / trackpad scrolling, which neither ratzilla backend reports.
+fn wheel_handler(app: Rc<RefCell<App>>, scroll_max: Rc<Cell<u16>>) -> impl FnMut(WheelEvent) {
+    let mut scroller = Scroller::default();
+    move |ev: WheelEvent| {
+        ev.prevent_default();
+        let delta = match ev.delta_mode() {
+            WheelEvent::DOM_DELTA_LINE => ev.delta_y() * Scroller::LINE_PX,
+            WheelEvent::DOM_DELTA_PAGE => ev.delta_y() * Scroller::LINE_PX * 20.0,
+            _ => ev.delta_y(),
+        };
+        scroller.push(
+            &mut app.borrow_mut(),
+            delta,
+            3.0 * Scroller::LINE_PX,
+            scroll_max.get(),
+        );
+    }
+}
+
+/// Swipe-to-scroll on touch screens: dragging a finger up scrolls down, like a
+/// page. (The canvas has `touch-action: none`, so the browser itself neither
+/// scrolls nor zooms; a tap still arrives as a click.)
+fn listen_touch(root: &web_sys::EventTarget, app: Rc<RefCell<App>>, scroll_max: Rc<Cell<u16>>) {
+    #[derive(Default)]
+    struct Drag {
+        last_y: Option<f64>,
+        scroller: Scroller,
+    }
+    let drag = Rc::new(RefCell::new(Drag::default()));
+    let first_y = |ev: &web_sys::TouchEvent| ev.touches().get(0).map(|t| f64::from(t.client_y()));
+    listen(root, "touchstart", {
+        let drag = drag.clone();
+        move |ev: web_sys::TouchEvent| drag.borrow_mut().last_y = first_y(&ev)
+    });
+    listen(root, "touchmove", {
+        let drag = drag.clone();
+        move |ev: web_sys::TouchEvent| {
+            let Some(y) = first_y(&ev) else {
+                return;
+            };
+            let drag = &mut *drag.borrow_mut();
+            if let Some(prev) = drag.last_y.replace(y) {
+                drag.scroller.push(
+                    &mut app.borrow_mut(),
+                    prev - y,
+                    2.0 * Scroller::LINE_PX,
+                    scroll_max.get(),
+                );
+            }
+        }
+    });
+    listen(root, "touchend", move |_: web_sys::TouchEvent| {
+        drag.borrow_mut().last_y = None;
+    });
+}
+
+/// Switch to the plain HTML view (remembered for next time).
+fn switch_to_plain() {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    if let Ok(Some(storage)) = window.local_storage() {
+        let _ = storage.set_item("cvView", "plain");
+    }
+    let _ = window.location().reload();
 }
 
 /// Frame timing for the animations, from the browser's monotonic clock.
@@ -783,6 +876,7 @@ where
             "wheel",
             wheel_handler(app.clone(), scroll_max.clone()),
         );
+        listen_touch(&root, app.clone(), scroll_max.clone());
     }
 
     terminal.on_key_event({
@@ -874,6 +968,13 @@ where
                             toys.borrow_mut()
                                 .poke(toy, ev.col - rect.x, ev.row - rect.y);
                         }
+                        Some((_, ClickAction::Steer(dir))) => {
+                            toys.borrow_mut().sail.steer(f64::from(dir) * 10.0);
+                        }
+                        Some((_, ClickAction::Autopilot)) => {
+                            toys.borrow_mut().sail.toggle_autopilot()
+                        }
+                        Some((_, ClickAction::PlainView)) => switch_to_plain(),
                         Some((_, action)) => app.activate(action),
                         // A click on the text of a reading view (focus / About /
                         // Skills) steps back one level.
@@ -888,6 +989,14 @@ where
     })?;
 
     focus_terminal();
+    // The terminal has its own Plain view button; tell the page so it can hide
+    // its fallback one (kept visible only if the terminal never starts).
+    if let Some(root) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.document_element())
+    {
+        let _ = root.set_attribute("data-terminal", "ready");
+    }
     listen(
         &web_sys::window().expect("window"),
         "keydown",
@@ -1009,7 +1118,7 @@ fn ui(
     sea::render(f.buffer_mut(), area, t);
 
     if app.helm {
-        render_helm(f, app, &toys.sail);
+        render_helm(f, app, regions, &toys.sail);
         return;
     }
     match app.screen {
@@ -1019,7 +1128,7 @@ fn ui(
         _ => match app.level {
             Level::List => render_list(f, app, regions, toys),
             Level::Detail => render_detail(f, app, regions, toys),
-            Level::Focus => render_focus(f, app, scroll_max),
+            Level::Focus => render_focus(f, app, regions, scroll_max),
         },
     }
 }
@@ -1117,6 +1226,12 @@ fn with_toy_column(body: Rect) -> (Rect, Option<Rect>) {
             .spacing(2)
             .areas(body);
         (text, Some(toy))
+    } else if body.height >= 34 {
+        // Phones: the toy goes under the text instead.
+        let [text, toy] = Layout::vertical([Constraint::Fill(1), Constraint::Length(14)])
+            .spacing(1)
+            .areas(body);
+        (text, Some(toy))
     } else {
         (body, None)
     }
@@ -1135,13 +1250,53 @@ fn title_bar(f: &mut Frame<'_>, area: Rect, title: &str) {
     f.render_widget(widget, area);
 }
 
-fn footer(f: &mut Frame<'_>, area: Rect, hint: &str) {
-    f.render_widget(
-        Paragraph::new(hint)
-            .style(Style::default().fg(NORD3))
-            .alignment(Alignment::Center),
-        area,
-    );
+/// Buttons shown on every content screen.
+const NAV_BUTTONS: [(&str, ClickAction); 3] = [
+    ("‹ Back", ClickAction::Back),
+    ("⌂ Home", ClickAction::Home),
+    ("☰ Plain view", ClickAction::PlainView),
+];
+
+/// Footer: a row of buttons (touch screens have no keys), with the keyboard
+/// hint underneath when it fits.
+fn footer(
+    f: &mut Frame<'_>,
+    area: Rect,
+    hint: &str,
+    buttons: &[(&str, ClickAction)],
+    regions: &Regions,
+) {
+    if area.height == 0 {
+        return;
+    }
+    let labels: Vec<String> = buttons
+        .iter()
+        .map(|(label, _)| format!(" {label} "))
+        .collect();
+    let total =
+        labels.iter().map(|l| l.width()).sum::<usize>() + 2 * labels.len().saturating_sub(1);
+    let mut x = area.x + area.width.saturating_sub(total as u16) / 2;
+    for (label, (_, action)) in labels.iter().zip(buttons) {
+        let w = label.width() as u16;
+        if x + w > area.right() {
+            break;
+        }
+        let rect = Rect::new(x, area.y, w, 1);
+        f.render_widget(
+            Paragraph::new(label.as_str()).style(Style::default().fg(NORD6).bg(BUTTON)),
+            rect,
+        );
+        regions.borrow_mut().push((rect, *action));
+        x += w + 2;
+    }
+    if area.height > 1 && hint.width() <= usize::from(area.width) {
+        f.render_widget(
+            Paragraph::new(hint)
+                .style(Style::default().fg(NORD3))
+                .alignment(Alignment::Center),
+            Rect::new(area.x, area.y + 1, area.width, 1),
+        );
+    }
 }
 
 fn link(url: String) -> Span<'static> {
@@ -1156,32 +1311,48 @@ fn link(url: String) -> Span<'static> {
 fn render_welcome(f: &mut Frame<'_>, app: &App, regions: &Regions) {
     let area = f.area();
 
-    let main_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(8),
-            Constraint::Min(10),
-            Constraint::Length(3),
-        ])
-        .split(area);
-
-    let header_text = Text::from(vec![
+    // Contact details sit on two lines, or stack one per line on phones.
+    let mut header_lines = vec![
         Line::from(""),
         Line::from(PROFILE.name).style(Style::default().fg(FROST).add_modifier(Modifier::BOLD)),
         Line::from(PROFILE.position).style(Style::default().fg(Color::Rgb(235, 203, 139))),
         Line::from(""),
-        // Full https:// URLs so the WebGL2 backend makes them clickable.
-        Line::from(vec![
-            Span::raw(format!("📧 {}  🌐 ", PROFILE.email)),
-            link(format!("https://{}", PROFILE.homepage)),
-            Span::raw("  💼 "),
-            link(format!("https://{}", PROFILE.github)),
-        ]),
-        Line::from(format!("📱 {}  📍 {}", PROFILE.phone, PROFILE.location)),
-        Line::from(""),
-    ])
+    ];
+    // Full https:// URLs so the WebGL2 backend makes them clickable.
+    let homepage = link(format!("https://{}", PROFILE.homepage));
+    let github = link(format!("https://{}", PROFILE.github));
+    if area.width < 84 {
+        header_lines.extend([
+            Line::from(format!("📧 {}", PROFILE.email)),
+            Line::from(vec![Span::raw("🌐 "), homepage]),
+            Line::from(vec![Span::raw("💼 "), github]),
+            Line::from(format!("📱 {}", PROFILE.phone)),
+            Line::from(format!("📍 {}", PROFILE.location)),
+        ]);
+    } else {
+        header_lines.extend([
+            Line::from(vec![
+                Span::raw(format!("📧 {}  🌐 ", PROFILE.email)),
+                homepage,
+                Span::raw("  💼 "),
+                github,
+            ]),
+            Line::from(format!("📱 {}  📍 {}", PROFILE.phone, PROFILE.location)),
+        ]);
+    }
+    header_lines.push(Line::from(""));
+    let header_rows = header_lines.len() as u16 + 2;
     // Explicit base colour: unstyled spans would otherwise keep the sea's dim fg.
-    .style(Style::default().fg(NORD6));
+    let header_text = Text::from(header_lines).style(Style::default().fg(NORD6));
+
+    let main_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(header_rows),
+            Constraint::Min(8),
+            Constraint::Length(3),
+        ])
+        .split(area);
 
     f.render_widget(
         header_text.centered(),
@@ -1210,10 +1381,15 @@ fn render_welcome(f: &mut Frame<'_>, app: &App, regions: &Regions) {
         .title(" Navigation ")
         .title_style(Style::default().fg(TEAL).add_modifier(Modifier::BOLD));
 
+    // Just tall enough for the items; the sea fills the space below.
     let menu_area = main_layout[1].inner(Margin {
         horizontal: 4,
         vertical: 1,
     });
+    let menu_area = Rect {
+        height: menu_area.height.min(screens.len() as u16 + 2),
+        ..menu_area
+    };
 
     let inner = menu_block.inner(menu_area);
     panel(f, menu_area);
@@ -1249,6 +1425,8 @@ fn render_welcome(f: &mut Frame<'_>, app: &App, regions: &Regions) {
             vertical: 0,
         }),
         "↑↓/Click Select • Enter Open • 1-5 Jump • Q Home",
+        &[("☰ Plain view", ClickAction::PlainView)],
+        regions,
     );
 }
 
@@ -1339,7 +1517,7 @@ fn render_list(f: &mut Frame<'_>, app: &App, regions: &Regions, toys: &mut toys:
     } else {
         "↑↓ Select • Enter/→ Open role • Esc Back"
     };
-    footer(f, footer_area, hint);
+    footer(f, footer_area, hint, &NAV_BUTTONS, regions);
 }
 
 /// Level 2: the selected role's highlights, each shown in full (bold lead plus
@@ -1423,17 +1601,19 @@ fn render_detail(f: &mut Frame<'_>, app: &App, regions: &Regions, toys: &mut toy
         ));
         y += heights[i];
     }
+    // Release before the footer, which registers its buttons in `regions` too.
+    drop(regs);
 
     let hint = if app.screen == Screen::Projects {
         "↑↓ Select • Enter/→ Read full • D Take the helm • ← Back"
     } else {
         "↑↓ Select • Enter/→ Read full • ← Back to roles"
     };
-    footer(f, footer_area, hint);
+    footer(f, footer_area, hint, &NAV_BUTTONS, regions);
 }
 
 /// Full-screen sailboat demo: the visitor steers, or hands back to the autopilot.
-fn render_helm(f: &mut Frame<'_>, app: &App, sim: &sail::Sim) {
+fn render_helm(f: &mut Frame<'_>, app: &App, regions: &Regions, sim: &sail::Sim) {
     let [title_area, body_area, footer_area] = content_layout(f.area());
     let name = app.current_entry().map_or("Sailboat", |e| e.org);
     title_bar(f, title_area, &format!("⛵ {name} · at the helm"));
@@ -1447,6 +1627,13 @@ fn render_helm(f: &mut Frame<'_>, app: &App, sim: &sail::Sim) {
         f,
         footer_area,
         "←/→ Steer (Shift: fine) • Space Autopilot • Esc Back",
+        &[
+            ("◀ Port", ClickAction::Steer(-1)),
+            ("Autopilot", ClickAction::Autopilot),
+            ("Starboard ▶", ClickAction::Steer(1)),
+            ("‹ Back", ClickAction::Back),
+        ],
+        regions,
     );
 }
 
@@ -1484,7 +1671,7 @@ fn split_sentences(text: &str) -> Vec<String> {
 }
 
 /// Level 3: read one highlight in full — a spacious, scrollable reading view.
-fn render_focus(f: &mut Frame<'_>, app: &App, scroll_max: &Cell<u16>) {
+fn render_focus(f: &mut Frame<'_>, app: &App, regions: &Regions, scroll_max: &Cell<u16>) {
     let Some(entry) = app.current_entry() else {
         return;
     };
@@ -1542,7 +1729,13 @@ fn render_focus(f: &mut Frame<'_>, app: &App, scroll_max: &Cell<u16>) {
         scroll_max,
     );
 
-    footer(f, layout[2], "↑↓ Scroll • ← / Esc Back to highlights");
+    footer(
+        f,
+        layout[2],
+        "↑↓ Scroll • ← / Esc Back to highlights",
+        &NAV_BUTTONS,
+        regions,
+    );
 }
 
 fn render_about(
@@ -1562,10 +1755,36 @@ fn render_about(
     if let Some(toy) = toy_area {
         toy_panel(f, toy, app.screen, regions, toys);
     }
-    let lines: Vec<Line> = gc::ABOUT.iter().map(|l| Line::from(*l)).collect();
+    // about.md is hard-wrapped; rejoin each paragraph so it reflows to the
+    // screen width (otherwise narrow screens get ragged double-wrapped lines).
+    let mut lines: Vec<Line> = Vec::new();
+    let mut paragraph = String::new();
+    for raw in gc::ABOUT {
+        let text = raw.trim();
+        if text.is_empty() || text.starts_with('•') {
+            if !paragraph.is_empty() {
+                lines.push(Line::from(std::mem::take(&mut paragraph)));
+            }
+            lines.push(Line::from(text));
+        } else {
+            if !paragraph.is_empty() {
+                paragraph.push(' ');
+            }
+            paragraph.push_str(text);
+        }
+    }
+    if !paragraph.is_empty() {
+        lines.push(Line::from(paragraph));
+    }
     render_scrollable(f, text_area, lines, app.scroll, scroll_max);
 
-    footer(f, footer_area, "↑↓ Scroll • Esc Back");
+    footer(
+        f,
+        footer_area,
+        "↑↓ Scroll • Esc Back",
+        &NAV_BUTTONS,
+        regions,
+    );
 }
 
 fn render_skills(
@@ -1598,5 +1817,11 @@ fn render_skills(
     }
     render_scrollable(f, text_area, lines, app.scroll, scroll_max);
 
-    footer(f, footer_area, "↑↓ Scroll • Esc Back");
+    footer(
+        f,
+        footer_area,
+        "↑↓ Scroll • Esc Back",
+        &NAV_BUTTONS,
+        regions,
+    );
 }
