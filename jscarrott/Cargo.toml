@@ -15,7 +15,8 @@ wasm-bindgen-futures = "0.4"
 unicode-width = "0.2"
 # ratzilla re-exports web-sys; enable the extra APIs used here (focusing the
 # canvas, awaiting the web font before the WebGL2 glyph atlas is built, wheel
-# scrolling, and history-backed deep links).
+# scrolling, history-backed deep links, and animation timing).
 web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "FontFaceSet", "console",
-    "EventTarget", "Event", "UiEvent", "MouseEvent", "WheelEvent", "History", "Location",
+    "EventTarget", "Event", "UiEvent", "MouseEvent", "WheelEvent", "History", "Location", "Performance", "MediaQueryList",
+    "KeyboardEvent", "KeyboardEventInit",
 ] }

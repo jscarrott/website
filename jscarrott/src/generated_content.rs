@@ -26,6 +26,7 @@ pub struct Entry {
     pub date: &'static str,
     pub emoji: &'static str,
     pub accent: &'static str,
+    pub demo: &'static str,
     pub bullets: &'static [Bullet],
 }
 
@@ -93,6 +94,7 @@ pub const EXPERIENCE: &[Entry] = &[
         date: "December 2019 - Present",
         emoji: "🚀",
         accent: "yellow",
+        demo: "",
         bullets: &[
             Bullet { lead: "Platform technical lead:", rest: "Set the technical direction for the product and author cross-platform roadmaps coordinating the on-train Agent, Frontend and Microservices/Backend platforms, so an architectural decision on one doesn't break another. Work is tracked as GitHub epics through an idea → buy-in → ticketed → planned → done lifecycle, and includes a push-based configuration-management design, a staged roadmap for offline (air-gapped) agent deployment, and an RBAC migration plan." },
             Bullet { lead: "Rust rewrite of the on-train detection agent (Python → Rust):", rest: "Driving an incremental \"strangler-fig\" migration that ships one stage per sprint with no big-bang cutover. Built the agent as a multi-call single binary (clap) on a Tokio runtime, with structured async task supervision, `panic=unwind` so a faulty monitor restarts rather than aborting the process, a lifecycle state machine, and self-monitoring with health heartbeats. Reimplemented the full monitor suite to strict parity with the Python agent (network DoS / port-scan / ARP, USB, syslog via journald, Suricata DPI, SNMP, GPS via gpsd, file/inotify, nftables and more) and drove the codebase toward pure-Rust dependencies, dropping C-FFI libraries such as libsnmp and paho-mqtt. Hardened the codebase with a parse-don't-validate pass (newtypes and enums for PSKs, endpoints, protocol versions and rail-protocol fields) and a cargo-nextest test workflow." },
@@ -116,6 +118,7 @@ pub const EXPERIENCE: &[Entry] = &[
         date: "June 2015 - December 2019",
         emoji: "⚙️",
         accent: "green",
+        demo: "",
         bullets: &[
             Bullet { lead: "Next-generation protection and condition monitoring:", rest: "Development and systems engineering of a next-generation system for large-plant monitoring. Championed the use of Rust for several of the system modules, running a dockerised signal-processing and logging system on an embedded target — being deployed at the NASA Ames Research Center." },
             Bullet { lead: "Rotor Track and Balance systems:", rest: "Developed and maintained a best-in-class RTB system in both carry-on and permanent-fit configurations, written to DO-178 Level C and D." },
@@ -135,6 +138,7 @@ pub const EDUCATION: &[Entry] = &[
         date: "2011 - 2015",
         emoji: "🎓",
         accent: "yellow",
+        demo: "",
         bullets: &[
             Bullet { lead: "", rest: "Software development and the psychology behind user interface design" },
         ],
@@ -147,6 +151,7 @@ pub const EDUCATION: &[Entry] = &[
         date: "2016",
         emoji: "⚡",
         accent: "green",
+        demo: "",
         bullets: &[
             Bullet { lead: "", rest: "Intensive five day course on writing low-level C with and without a real time operating system." },
         ],
@@ -159,6 +164,7 @@ pub const EDUCATION: &[Entry] = &[
         date: "2016",
         emoji: "🔧",
         accent: "blue",
+        demo: "",
         bullets: &[
             Bullet { lead: "", rest: "Five-day course on C++ for micro-controllers: its pitfalls and advanced features." },
         ],
@@ -174,6 +180,7 @@ pub const PROJECTS: &[Entry] = &[
         date: "2023-",
         emoji: "⛵",
         accent: "orange",
+        demo: "sail",
         bullets: &[
             Bullet { lead: "", rest: "Building a physics-based simulator to design, develop and test an autonomous sailboat before deploying to real hardware." },
             Bullet { lead: "", rest: "Ported the 6-degree-of-freedom (6-DOF) dynamics core to Rust from a published autonomous-sailing model (Sailing Team Darmstadt, IRSC 2018), and extended it with route-following, real nautical-chart navigation and a speed-polar calibration instrument." },
@@ -188,6 +195,7 @@ pub const PROJECTS: &[Entry] = &[
         date: "2025-",
         emoji: "🏠",
         accent: "purple",
+        demo: "",
         bullets: &[
             Bullet { lead: "", rest: "Home Assistant add-on that packages Homebox (a self-hosted home inventory tool) for one-click installation through the Home Assistant Supervisor." },
             Bullet { lead: "", rest: "My most-starred public project, used by the wider Home Assistant community." },
@@ -202,6 +210,7 @@ pub const PROJECTS: &[Entry] = &[
         date: "2023-",
         emoji: "📖",
         accent: "yellow",
+        demo: "",
         bullets: &[
             Bullet { lead: "", rest: "Small tool that combines mdBooks from multiple repositories into one site, shipped through automated releases." },
         ],
@@ -214,6 +223,7 @@ pub const PROJECTS: &[Entry] = &[
         date: "2026-",
         emoji: "🔌",
         accent: "teal",
+        demo: "",
         bullets: &[
             Bullet { lead: "", rest: "CLI plugin manager, written in Rust, for jjui — a TUI for the Jujutsu (jj) version-control system." },
             Bullet { lead: "", rest: "Manages Lua plugins by reading and modifying the jjui config file; installable via cargo." },
@@ -228,6 +238,7 @@ pub const PROJECTS: &[Entry] = &[
         date: "2018-",
         emoji: "🔧",
         accent: "green",
+        demo: "",
         bullets: &[
             Bullet { lead: "", rest: "Experienced developing at the cutting edge, implementing Rust only hardware abstraction on a micro-controller." },
             Bullet { lead: "", rest: "Being the first to run Rust on the nRF52840 chip proved a real problem solving challenge." },
