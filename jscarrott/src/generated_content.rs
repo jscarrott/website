@@ -19,6 +19,7 @@ pub struct Bullet {
 }
 
 pub struct Entry {
+    pub slug: &'static str,
     pub title: &'static str,
     pub org: &'static str,
     pub location: &'static str,
@@ -85,6 +86,7 @@ pub const SKILLS: &[SkillCategory] = &[
 
 pub const EXPERIENCE: &[Entry] = &[
     Entry {
+        slug: "razorsecure",
         title: "Senior Rust Software Engineer & Platform Lead",
         org: "RazorSecure",
         location: "Remote",
@@ -107,6 +109,7 @@ pub const EXPERIENCE: &[Entry] = &[
         ],
     },
     Entry {
+        slug: "helitune",
         title: "Software Engineer",
         org: "Helitune/Beran Instruments",
         location: "Torrington, North Devon",
@@ -125,6 +128,7 @@ pub const EXPERIENCE: &[Entry] = &[
 
 pub const EDUCATION: &[Entry] = &[
     Entry {
+        slug: "open-university",
         title: "BSc. in Computing and Psychology",
         org: "The Open University",
         location: "England",
@@ -136,6 +140,7 @@ pub const EDUCATION: &[Entry] = &[
         ],
     },
     Entry {
+        slug: "c-realtime",
         title: "C for Real-Time Developers",
         org: "Feabhas",
         location: "Royal Wootton Bassett",
@@ -147,6 +152,7 @@ pub const EDUCATION: &[Entry] = &[
         ],
     },
     Entry {
+        slug: "advanced-cpp",
         title: "Advanced C++ Development",
         org: "Feabhas",
         location: "Royal Wootton Bassett",
@@ -161,6 +167,7 @@ pub const EDUCATION: &[Entry] = &[
 
 pub const PROJECTS: &[Entry] = &[
     Entry {
+        slug: "sailboat-simulator",
         title: "Author",
         org: "STDA Sailboat Simulator",
         location: "GitHub",
@@ -174,6 +181,7 @@ pub const PROJECTS: &[Entry] = &[
         ],
     },
     Entry {
+        slug: "homebox-addon",
         title: "Author",
         org: "Homebox Home Assistant Add-on",
         location: "GitHub",
@@ -187,6 +195,7 @@ pub const PROJECTS: &[Entry] = &[
         ],
     },
     Entry {
+        slug: "mdbook-combiner",
         title: "Author",
         org: "Md-book combiner",
         location: "Github",
@@ -198,6 +207,7 @@ pub const PROJECTS: &[Entry] = &[
         ],
     },
     Entry {
+        slug: "jjui-plugin-manager",
         title: "Author",
         org: "jjui-pm",
         location: "GitHub",
@@ -211,6 +221,7 @@ pub const PROJECTS: &[Entry] = &[
         ],
     },
     Entry {
+        slug: "nrf52-hal",
         title: "Contributor",
         org: "Rust nRF52 Hal",
         location: "Github",

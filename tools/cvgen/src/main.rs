@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 use std::process::exit;
 
 struct Entry {
+    /// URL slug, from the file name minus its ordering prefix (`01-razorsecure.md` → `razorsecure`).
+    slug: String,
     title: String,
     org: String,
     location: String,
@@ -104,9 +106,17 @@ fn body_bullets(body: &str) -> Vec<Bullet> {
         .collect()
 }
 
-fn parse_entry(text: &str) -> Entry {
-    let (fm, body) = split_frontmatter(text);
+fn parse_entry(path: &Path) -> Entry {
+    let text = fs::read_to_string(path).unwrap();
+    let (fm, body) = split_frontmatter(&text);
+    let stem = path.file_stem().unwrap().to_string_lossy();
+    let slug = stem
+        .split_once('-')
+        .filter(|(n, _)| n.chars().all(|c| c.is_ascii_digit()))
+        .map_or(&*stem, |(_, rest)| rest)
+        .to_string();
     Entry {
+        slug,
         title: field(&fm, "title"),
         org: field(&fm, "org"),
         location: field(&fm, "location"),
@@ -127,7 +137,7 @@ fn parse_entries(dir: &Path) -> Vec<Entry> {
     files.sort();
     files
         .iter()
-        .map(|p| parse_entry(&fs::read_to_string(p).unwrap()))
+        .map(|p| parse_entry(p))
         .collect()
 }
 
@@ -166,6 +176,7 @@ fn emit_entries_rust(o: &mut String, name: &str, entries: &[Entry]) {
     o.push_str(&format!("pub const {name}: &[Entry] = &[\n"));
     for e in entries {
         o.push_str("    Entry {\n");
+        o.push_str(&format!("        slug: \"{}\",\n", rs(&e.slug)));
         o.push_str(&format!("        title: \"{}\",\n", rs(&e.title)));
         o.push_str(&format!("        org: \"{}\",\n", rs(&e.org)));
         o.push_str(&format!("        location: \"{}\",\n", rs(&e.location)));
@@ -204,7 +215,7 @@ fn emit_rust(
     o.push_str("#![allow(dead_code)]\n\n");
     o.push_str("pub struct Profile {\n    pub name: &'static str,\n    pub position: &'static str,\n    pub email: &'static str,\n    pub phone: &'static str,\n    pub homepage: &'static str,\n    pub github: &'static str,\n    pub location: &'static str,\n}\n\n");
     o.push_str("pub struct Bullet {\n    pub lead: &'static str,\n    pub rest: &'static str,\n}\n\n");
-    o.push_str("pub struct Entry {\n    pub title: &'static str,\n    pub org: &'static str,\n    pub location: &'static str,\n    pub date: &'static str,\n    pub emoji: &'static str,\n    pub accent: &'static str,\n    pub bullets: &'static [Bullet],\n}\n\n");
+    o.push_str("pub struct Entry {\n    pub slug: &'static str,\n    pub title: &'static str,\n    pub org: &'static str,\n    pub location: &'static str,\n    pub date: &'static str,\n    pub emoji: &'static str,\n    pub accent: &'static str,\n    pub bullets: &'static [Bullet],\n}\n\n");
     o.push_str("pub struct SkillCategory {\n    pub name: &'static str,\n    pub items: &'static str,\n}\n\n");
 
     o.push_str(&format!(
@@ -381,9 +392,16 @@ fn esc(s: &str) -> String {
 }
 
 fn html_entries(out: &mut String, title: &str, entries: &[Entry]) {
-    out.push_str(&format!("      <section>\n        <h2>{}</h2>\n", esc(title)));
+    let id = title.to_lowercase();
+    out.push_str(&format!(
+        "      <section id=\"{id}\">\n        <h2>{}</h2>\n",
+        esc(title)
+    ));
     for e in entries {
-        out.push_str("        <article class=\"entry\">\n");
+        out.push_str(&format!(
+            "        <article class=\"entry\" id=\"{id}/{}\">\n",
+            esc(&e.slug)
+        ));
         out.push_str(&format!(
             "          <h3>{} {}<span class=\"org\"> — {}</span></h3>\n",
             esc(&e.emoji),
@@ -413,7 +431,7 @@ fn html_entries(out: &mut String, title: &str, entries: &[Entry]) {
 }
 
 fn html_about(out: &mut String, about: &[String]) {
-    out.push_str("      <section>\n        <h2>About</h2>\n");
+    out.push_str("      <section id=\"about\">\n        <h2>About</h2>\n");
     let mut para: Vec<&str> = Vec::new();
     let mut list_open = false;
     for line in about {
@@ -455,7 +473,7 @@ fn html_about(out: &mut String, about: &[String]) {
 }
 
 fn html_skills(out: &mut String, skills: &[Skill]) {
-    out.push_str("      <section>\n        <h2>Skills</h2>\n        <dl class=\"skills\">\n");
+    out.push_str("      <section id=\"skills\">\n        <h2>Skills</h2>\n        <dl class=\"skills\">\n");
     for s in skills {
         out.push_str(&format!(
             "          <dt>{}</dt>\n          <dd>{}</dd>\n",
