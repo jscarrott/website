@@ -22,6 +22,8 @@ struct Entry {
     date: String,
     emoji: String,
     accent: String,
+    /// Interactive demo shown with the entry on the site (e.g. `sail`), if any.
+    demo: String,
     bullets: Vec<Bullet>,
 }
 
@@ -123,6 +125,7 @@ fn parse_entry(path: &Path) -> Entry {
         date: field(&fm, "date"),
         emoji: field(&fm, "emoji"),
         accent: field(&fm, "accent"),
+        demo: field(&fm, "demo"),
         bullets: body_bullets(&body),
     }
 }
@@ -183,6 +186,7 @@ fn emit_entries_rust(o: &mut String, name: &str, entries: &[Entry]) {
         o.push_str(&format!("        date: \"{}\",\n", rs(&e.date)));
         o.push_str(&format!("        emoji: \"{}\",\n", rs(&e.emoji)));
         o.push_str(&format!("        accent: \"{}\",\n", rs(&e.accent)));
+        o.push_str(&format!("        demo: \"{}\",\n", rs(&e.demo)));
         o.push_str("        bullets: &[\n");
         for b in &e.bullets {
             o.push_str(&format!(
@@ -215,7 +219,7 @@ fn emit_rust(
     o.push_str("#![allow(dead_code)]\n\n");
     o.push_str("pub struct Profile {\n    pub name: &'static str,\n    pub position: &'static str,\n    pub email: &'static str,\n    pub phone: &'static str,\n    pub homepage: &'static str,\n    pub github: &'static str,\n    pub location: &'static str,\n}\n\n");
     o.push_str("pub struct Bullet {\n    pub lead: &'static str,\n    pub rest: &'static str,\n}\n\n");
-    o.push_str("pub struct Entry {\n    pub slug: &'static str,\n    pub title: &'static str,\n    pub org: &'static str,\n    pub location: &'static str,\n    pub date: &'static str,\n    pub emoji: &'static str,\n    pub accent: &'static str,\n    pub bullets: &'static [Bullet],\n}\n\n");
+    o.push_str("pub struct Entry {\n    pub slug: &'static str,\n    pub title: &'static str,\n    pub org: &'static str,\n    pub location: &'static str,\n    pub date: &'static str,\n    pub emoji: &'static str,\n    pub accent: &'static str,\n    pub demo: &'static str,\n    pub bullets: &'static [Bullet],\n}\n\n");
     o.push_str("pub struct SkillCategory {\n    pub name: &'static str,\n    pub items: &'static str,\n}\n\n");
 
     o.push_str(&format!(
