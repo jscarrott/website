@@ -8,6 +8,7 @@ use std::{
 mod generated_content;
 mod sail;
 mod sea;
+mod toys;
 use generated_content::{self as gc, PROFILE};
 
 use ratzilla::{
@@ -279,6 +280,15 @@ impl App {
         }
     }
 
+    fn open_demo(&mut self) {
+        let demo =
+            section_entries(self.screen).and_then(|e| e.iter().position(|e| e.demo == "sail"));
+        if let Some(i) = demo {
+            self.open_entry(i);
+            self.open_helm();
+        }
+    }
+
     /// The deep link for the current view, without the leading `#`:
     /// `experience`, `experience/razorsecure`, or `experience/razorsecure/2`
     /// (1-based highlight), plus `projects/<demo entry>/helm` for the sailboat
@@ -361,7 +371,7 @@ impl App {
                 }
             }
             ClickAction::OpenEntry(i) => self.selected_entry = i,
-            ClickAction::OpenBullet(_) | ClickAction::OpenHelm => {}
+            ClickAction::OpenBullet(_) | ClickAction::OpenDemo | ClickAction::Toy(_) => {}
         }
     }
 
@@ -370,7 +380,9 @@ impl App {
             ClickAction::Goto(s) => self.goto_section(s),
             ClickAction::OpenEntry(i) => self.open_entry(i),
             ClickAction::OpenBullet(i) => self.open_bullet(i),
-            ClickAction::OpenHelm => self.open_helm(),
+            ClickAction::OpenDemo => self.open_demo(),
+            // Toys are poked by the mouse handler, which knows where they are.
+            ClickAction::Toy(_) => {}
         }
     }
 
@@ -391,7 +403,9 @@ enum ClickAction {
     Goto(Screen),
     OpenEntry(usize),
     OpenBullet(usize),
-    OpenHelm,
+    /// Open the section's demo entry straight at the helm.
+    OpenDemo,
+    Toy(toys::Toy),
 }
 
 type Regions = RefCell<Vec<(Rect, ClickAction)>>;
@@ -743,9 +757,9 @@ where
     // Maximum scroll offset for the current view, computed each render so the
     // key handler can clamp downward scrolling at the bottom of the content.
     let scroll_max: Rc<Cell<u16>> = Rc::new(Cell::new(0));
-    // The sailboat demo keeps sailing whichever screen is showing, so the
-    // preview is mid-passage rather than restarting each time it's opened.
-    let sim = Rc::new(RefCell::new(sail::Sim::new()));
+    // The toys (and the sailboat demo) keep running whichever screen is
+    // showing, so each is mid-flow rather than restarting when it's opened.
+    let toys = Rc::new(RefCell::new(toys::Toys::new()));
 
     // Open whatever the URL points at (normalising a stale or mistyped link to
     // the view actually shown), and follow the browser's back/forward —
@@ -774,11 +788,11 @@ where
     terminal.on_key_event({
         let app = app.clone();
         let scroll_max = scroll_max.clone();
-        let sim = sim.clone();
+        let toys = toys.clone();
         move |key_event| {
             let mut app = app.borrow_mut();
             if app.helm {
-                let mut sim = sim.borrow_mut();
+                let sim = &mut toys.borrow_mut().sail;
                 // Shift for fine helm adjustments.
                 let step = if key_event.shift { 2.0 } else { 10.0 };
                 match key_event.code {
@@ -792,7 +806,7 @@ where
                 return;
             }
             match key_event.code {
-                KeyCode::Char('d') => app.open_helm(),
+                KeyCode::Char('d') if app.screen == Screen::Projects => app.open_demo(),
                 KeyCode::Char('q') => app.go_home(),
                 KeyCode::Esc | KeyCode::Backspace | KeyCode::Left | KeyCode::Char('h') => {
                     app.back()
@@ -840,17 +854,15 @@ where
     terminal.on_mouse_event({
         let app = app.clone();
         let regions = regions.clone();
+        let toys = toys.clone();
         move |ev| {
             let regions = regions.borrow();
             let pos = Position::new(ev.col, ev.row);
-            let hit = regions
-                .iter()
-                .find(|(rect, _)| rect.contains(pos))
-                .map(|(_, action)| *action);
+            let hit = regions.iter().find(|(rect, _)| rect.contains(pos)).copied();
             let mut app = app.borrow_mut();
             match ev.kind {
                 MouseEventKind::Moved => {
-                    if let Some(action) = hit {
+                    if let Some((_, action)) = hit {
                         app.hover(action);
                     }
                 }
@@ -858,12 +870,14 @@ where
                 // reports raw button transitions.
                 MouseEventKind::ButtonUp(MouseButton::Left) => {
                     match hit {
-                        Some(action) => app.activate(action),
-                        // A click on a screen with no interactive regions
-                        // (focus / About / Skills) steps back one level.
-                        // (The helm screen has none either, but a stray click
-                        // there shouldn't drop you out of the demo.)
-                        None if regions.is_empty() && !app.helm => app.back(),
+                        Some((rect, ClickAction::Toy(toy))) => {
+                            toys.borrow_mut()
+                                .poke(toy, ev.col - rect.x, ev.row - rect.y);
+                        }
+                        Some((_, action)) => app.activate(action),
+                        // A click on the text of a reading view (focus / About /
+                        // Skills) steps back one level.
+                        None if app.is_scroll_view() => app.back(),
                         None => {}
                     }
                     push_route(&app);
@@ -883,18 +897,12 @@ where
     let clock = Clock::new();
     terminal.draw_web(move |f| {
         let (dt, t) = clock.tick();
-        sim.borrow_mut().step(dt);
-        // With reduced motion requested, the sea holds still (the sailboat
-        // demo still sails: it's something the visitor chose to open).
+        let mut toys = toys.borrow_mut();
+        // With reduced motion requested, the sea and the toys hold still (the
+        // sailboat demo still sails: it's something the visitor chose to open).
+        toys.step(dt, !clock.reduced_motion);
         let sea_t = if clock.reduced_motion { 0.0 } else { t };
-        ui(
-            f,
-            &app.borrow(),
-            &regions,
-            &scroll_max,
-            &sim.borrow(),
-            sea_t,
-        );
+        ui(f, &app.borrow(), &regions, &scroll_max, &mut toys, sea_t);
     });
 
     Ok(())
@@ -990,7 +998,7 @@ fn ui(
     app: &App,
     regions: &Regions,
     scroll_max: &Cell<u16>,
-    sim: &sail::Sim,
+    toys: &mut toys::Toys,
     t: f64,
 ) {
     regions.borrow_mut().clear();
@@ -1001,16 +1009,16 @@ fn ui(
     sea::render(f.buffer_mut(), area, t);
 
     if app.helm {
-        render_helm(f, app, sim);
+        render_helm(f, app, &toys.sail);
         return;
     }
     match app.screen {
         Screen::Welcome => render_welcome(f, app, regions),
-        Screen::About => render_about(f, app, scroll_max),
-        Screen::Skills => render_skills(f, app, scroll_max),
+        Screen::About => render_about(f, app, regions, scroll_max, toys),
+        Screen::Skills => render_skills(f, app, regions, scroll_max, toys),
         _ => match app.level {
-            Level::List => render_list(f, app, regions),
-            Level::Detail => render_detail(f, app, regions, sim),
+            Level::List => render_list(f, app, regions, toys),
+            Level::Detail => render_detail(f, app, regions, toys),
             Level::Focus => render_focus(f, app, scroll_max),
         },
     }
@@ -1034,6 +1042,84 @@ fn content_layout(area: Rect) -> [Rect; 3] {
 fn panel(f: &mut Frame<'_>, area: Rect) {
     f.render_widget(Clear, area);
     f.render_widget(Block::default().style(Style::default().bg(NORD0)), area);
+}
+
+/// The toy that lives on a section's screen, with its panel title.
+fn section_toy(screen: Screen) -> Option<(toys::Toy, &'static str)> {
+    match screen {
+        Screen::About => Some((
+            toys::Toy::Lighthouse,
+            " North Devon light · click for the foghorn ",
+        )),
+        Screen::Experience => Some((
+            toys::Toy::Train,
+            " 🚆 On-train IDS · click to inject a bad frame ",
+        )),
+        Screen::Skills => Some((toys::Toy::Ferris, " Ferris · click for a skill ")),
+        Screen::Education => Some((toys::Toy::Life, " Game of Life · click to drop a glider ")),
+        Screen::Projects | Screen::Welcome => None,
+    }
+}
+
+/// Draw a section's toy (or, for Projects, the sailboat chart) in a panel and
+/// make it clickable.
+fn toy_panel(
+    f: &mut Frame<'_>,
+    area: Rect,
+    screen: Screen,
+    regions: &Regions,
+    toys: &mut toys::Toys,
+) {
+    panel(f, area);
+    if screen == Screen::Projects {
+        sail::render(
+            f,
+            area,
+            &toys.sail,
+            " ⛵ Live nav · click or press D to take the helm ",
+            true,
+        );
+        regions.borrow_mut().push((area, ClickAction::OpenDemo));
+        return;
+    }
+    let Some((toy, title)) = section_toy(screen) else {
+        return;
+    };
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(TEAL))
+        .title(title)
+        .title_style(Style::default().fg(TEAL));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+    toys.render(toy, f.buffer_mut(), inner);
+    regions.borrow_mut().push((inner, ClickAction::Toy(toy)));
+}
+
+/// Split a list or highlights view into the content plus the section's toy
+/// panel: side by side when there's room, otherwise the toy below.
+fn with_side_panel(content: Rect) -> (Rect, Rect) {
+    let [main, side] = if content.width >= 100 {
+        Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)])
+            .spacing(1)
+            .areas(content)
+    } else {
+        Layout::vertical([Constraint::Fill(1), Constraint::Length(14)]).areas(content)
+    };
+    (main, side)
+}
+
+/// Split a reading view's body into text plus a toy column, when the screen
+/// is wide enough to spare one.
+fn with_toy_column(body: Rect) -> (Rect, Option<Rect>) {
+    if body.width >= 110 {
+        let [text, toy] = Layout::horizontal([Constraint::Fill(1), Constraint::Length(44)])
+            .spacing(2)
+            .areas(body);
+        (text, Some(toy))
+    } else {
+        (body, None)
+    }
 }
 
 fn title_bar(f: &mut Frame<'_>, area: Rect, title: &str) {
@@ -1193,29 +1279,39 @@ fn list_block<'a>(
 }
 
 /// Level 1: list of roles in a section, with date column.
-fn render_list(f: &mut Frame<'_>, app: &App, regions: &Regions) {
+fn render_list(f: &mut Frame<'_>, app: &App, regions: &Regions, toys: &mut toys::Toys) {
     let entries = section_entries(app.screen).unwrap_or(&[]);
     let [title_area, body_area, footer_area] = content_layout(f.area());
     title_bar(f, title_area, app.screen.heading());
 
-    let list_area = body_area.inner(Margin {
+    let content = body_area.inner(Margin {
         horizontal: 2,
         vertical: 1,
     });
+    let (list_area, toy_area) = with_side_panel(content);
+    toy_panel(f, toy_area, app.screen, regions, toys);
 
+    // Row width available inside the borders, after the "▶ " marker.
+    let row_width = usize::from(list_area.width.saturating_sub(4));
     let items: Vec<ListItem> = entries
         .iter()
         .map(|e| {
             let accent = accent_color(e.accent);
-            ListItem::new(Line::from(vec![
+            let mut line = Line::from(vec![
                 Span::raw(format!("{} ", e.emoji)),
                 Span::styled(
                     e.title,
                     Style::default().fg(accent).add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(format!("  ·  {}", e.org), Style::default().fg(NORD4)),
-                Span::styled(format!("   {}", e.date), Style::default().fg(NORD3)),
-            ]))
+            ]);
+            // Drop the date rather than cut it off when the toy panel leaves
+            // the list narrow; it's shown again on the entry's own screen.
+            let date = Span::styled(format!("   {}", e.date), Style::default().fg(NORD3));
+            if line.width() + date.width() <= row_width {
+                line.push_span(date);
+            }
+            ListItem::new(line)
         })
         .collect();
 
@@ -1238,12 +1334,17 @@ fn render_list(f: &mut Frame<'_>, app: &App, regions: &Regions) {
         .highlight_symbol("▶ ");
     f.render_stateful_widget(list, list_area, &mut state);
 
-    footer(f, footer_area, "↑↓ Select • Enter/→ Open role • Esc Back");
+    let hint = if app.screen == Screen::Projects {
+        "↑↓ Select • Enter/→ Open • D Take the helm • Esc Back"
+    } else {
+        "↑↓ Select • Enter/→ Open role • Esc Back"
+    };
+    footer(f, footer_area, hint);
 }
 
 /// Level 2: the selected role's highlights, each shown in full (bold lead plus
 /// the wrapped detail) as a selectable, scrollable list.
-fn render_detail(f: &mut Frame<'_>, app: &App, regions: &Regions, sim: &sail::Sim) {
+fn render_detail(f: &mut Frame<'_>, app: &App, regions: &Regions, toys: &mut toys::Toys) {
     let Some(entry) = app.current_entry() else {
         return;
     };
@@ -1259,31 +1360,8 @@ fn render_detail(f: &mut Frame<'_>, app: &App, regions: &Regions, sim: &sail::Si
         horizontal: 2,
         vertical: 1,
     });
-    // An entry with the sailboat demo shares the body with a live nav chart:
-    // side by side when there's room, otherwise the chart below.
-    let (list_area, chart_area) = if app.has_demo() {
-        let [list, chart] = if content.width >= 100 {
-            Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)])
-                .spacing(1)
-                .areas(content)
-        } else {
-            Layout::vertical([Constraint::Fill(1), Constraint::Length(14)]).areas(content)
-        };
-        (list, Some(chart))
-    } else {
-        (content, None)
-    };
-    if let Some(chart) = chart_area {
-        panel(f, chart);
-        sail::render(
-            f,
-            chart,
-            sim,
-            " ⛵ Live nav · click or press D to take the helm ",
-            true,
-        );
-        regions.borrow_mut().push((chart, ClickAction::OpenHelm));
-    }
+    let (list_area, toy_area) = with_side_panel(content);
+    toy_panel(f, toy_area, app.screen, regions, toys);
     panel(f, list_area);
 
     let block = Block::default()
@@ -1346,7 +1424,7 @@ fn render_detail(f: &mut Frame<'_>, app: &App, regions: &Regions, sim: &sail::Si
         y += heights[i];
     }
 
-    let hint = if app.has_demo() {
+    let hint = if app.screen == Screen::Projects {
         "↑↓ Select • Enter/→ Read full • D Take the helm • ← Back"
     } else {
         "↑↓ Select • Enter/→ Read full • ← Back to roles"
@@ -1467,26 +1545,36 @@ fn render_focus(f: &mut Frame<'_>, app: &App, scroll_max: &Cell<u16>) {
     footer(f, layout[2], "↑↓ Scroll • ← / Esc Back to highlights");
 }
 
-fn render_about(f: &mut Frame<'_>, app: &App, scroll_max: &Cell<u16>) {
+fn render_about(
+    f: &mut Frame<'_>,
+    app: &App,
+    regions: &Regions,
+    scroll_max: &Cell<u16>,
+    toys: &mut toys::Toys,
+) {
     let [title_area, body_area, footer_area] = content_layout(f.area());
     title_bar(f, title_area, app.screen.heading());
 
+    let (text_area, toy_area) = with_toy_column(body_area.inner(Margin {
+        horizontal: 4,
+        vertical: 1,
+    }));
+    if let Some(toy) = toy_area {
+        toy_panel(f, toy, app.screen, regions, toys);
+    }
     let lines: Vec<Line> = gc::ABOUT.iter().map(|l| Line::from(*l)).collect();
-    render_scrollable(
-        f,
-        body_area.inner(Margin {
-            horizontal: 4,
-            vertical: 1,
-        }),
-        lines,
-        app.scroll,
-        scroll_max,
-    );
+    render_scrollable(f, text_area, lines, app.scroll, scroll_max);
 
     footer(f, footer_area, "↑↓ Scroll • Esc Back");
 }
 
-fn render_skills(f: &mut Frame<'_>, app: &App, scroll_max: &Cell<u16>) {
+fn render_skills(
+    f: &mut Frame<'_>,
+    app: &App,
+    regions: &Regions,
+    scroll_max: &Cell<u16>,
+    toys: &mut toys::Toys,
+) {
     let [title_area, body_area, footer_area] = content_layout(f.area());
     title_bar(f, title_area, app.screen.heading());
 
@@ -1501,16 +1589,14 @@ fn render_skills(f: &mut Frame<'_>, app: &App, scroll_max: &Cell<u16>) {
         lines.push(Line::from(""));
     }
 
-    render_scrollable(
-        f,
-        body_area.inner(Margin {
-            horizontal: 2,
-            vertical: 1,
-        }),
-        lines,
-        app.scroll,
-        scroll_max,
-    );
+    let (text_area, toy_area) = with_toy_column(body_area.inner(Margin {
+        horizontal: 2,
+        vertical: 1,
+    }));
+    if let Some(toy) = toy_area {
+        toy_panel(f, toy, app.screen, regions, toys);
+    }
+    render_scrollable(f, text_area, lines, app.scroll, scroll_max);
 
     footer(f, footer_area, "↑↓ Scroll • Esc Back");
 }
