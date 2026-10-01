@@ -279,8 +279,10 @@ pub fn render(f: &mut Frame<'_>, area: Rect, sim: &Sim, title: &str, compact: bo
     let value = Style::default().fg(NORD4);
     // Arrow points where the wind blows to, as on a weather map.
     let wind = format!("{} {:.0} kn", arrow(sim.wind_from + 180.0), sim.wind_speed);
-    if compact {
-        let hud = Line::from(vec![
+    // The short HUD is used in the inline preview and on narrow (phone) screens.
+    let short = compact || hud_area.width < 72;
+    let readout = if short {
+        Line::from(vec![
             Span::styled(format!("{:03.0}°", sim.heading), value),
             Span::styled(" · ", label),
             Span::styled(format!("{:.1} kn", sim.speed), value),
@@ -288,11 +290,8 @@ pub fn render(f: &mut Frame<'_>, area: Rect, sim: &Sim, title: &str, compact: bo
             Span::styled(sim.point_of_sail(), Style::default().fg(FROST)),
             Span::styled(" · wind ", label),
             Span::styled(wind, value),
-        ]);
-        f.render_widget(Paragraph::new(hud).alignment(Alignment::Center), hud_area);
-        return;
-    }
-    let lines = vec![
+        ])
+    } else {
         Line::from(vec![
             Span::styled("HDG ", label),
             Span::styled(format!("{:03.0}°", sim.heading), value),
@@ -306,8 +305,11 @@ pub fn render(f: &mut Frame<'_>, area: Rect, sim: &Sim, title: &str, compact: bo
             ),
             Span::styled("  WIND ", label),
             Span::styled(wind, value),
-        ]),
-        match sim.notice {
+        ])
+    };
+    let mut lines = vec![readout];
+    if !compact {
+        lines.push(match sim.notice {
             Some((text, until)) if sim.t < until => Line::styled(text, Style::default().fg(YELLOW)),
             _ if sim.auto => Line::styled(
                 format!("AUTOPILOT → waypoint {}", sim.waypoint + 1),
@@ -317,8 +319,8 @@ pub fn render(f: &mut Frame<'_>, area: Rect, sim: &Sim, title: &str, compact: bo
                 format!("YOU HAVE THE HELM → steering {:03.0}°", sim.target),
                 Style::default().fg(YELLOW).bold(),
             ),
-        },
-    ];
+        });
+    }
     f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), hud_area);
 }
 

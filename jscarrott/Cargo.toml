@@ -18,5 +18,5 @@ unicode-width = "0.2"
 # scrolling, history-backed deep links, and animation timing).
 web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "FontFaceSet", "console",
     "EventTarget", "Event", "UiEvent", "MouseEvent", "WheelEvent", "History", "Location", "Performance", "MediaQueryList",
-    "KeyboardEvent", "KeyboardEventInit",
+    "KeyboardEvent", "KeyboardEventInit", "TouchEvent", "TouchList", "Touch", "Storage",
 ] }
