@@ -333,6 +333,7 @@ dependencies = [
  "console_error_panic_hook",
  "critical-section",
  "ratzilla",
+ "unicode-width",
  "wasm-bindgen-futures",
  "web-sys",
 ]

@@ -86,7 +86,7 @@ dl.skills dd { margin: 0; }
           <span>Barnstaple, Devon, UK</span>
         </p>
       </header>
-      <section>
+      <section id="about">
         <h2>About</h2>
         <p>I'm a software engineer and platform lead at RazorSecure, where we build intrusion detection for the rail industry — on-train agents reporting back to a wayside and cloud platform. I set the technical direction across our platforms and am currently leading the migration of our on-train detection agent from Python to Rust, alongside building the internal tooling our engineers and testers rely on day to day.</p>
         <p>I've been building software professionally for over a decade. I started out in safety-critical embedded systems — helicopter health monitoring written to DO-178 — before moving into high-performance networking, security and cloud-native infrastructure. These days I work mostly in Rust and Python, and I'm at my best on low-level, performance-sensitive problems and the tooling and systems around them.</p>
@@ -100,9 +100,9 @@ dl.skills dd { margin: 0; }
         </ul>
         <p>Outside work I build things for fun — at the moment a physics simulator for testing an autonomous sailboat — and contribute to open source.</p>
       </section>
-      <section>
+      <section id="experience">
         <h2>Experience</h2>
-        <article class="entry">
+        <article class="entry" id="experience/razorsecure">
           <h3>🚀 Senior Rust Software Engineer &amp; Platform Lead<span class="org"> — RazorSecure</span></h3>
           <p class="meta">December 2019 - Present · Remote</p>
           <ul>
@@ -120,7 +120,7 @@ dl.skills dd { margin: 0; }
             <li><strong>Test and documentation discipline:</strong> Built a multi-tier BDD test harness spanning the agent, processing and integration layers up to end-to-end tests driven through a real MQTT broker, with a JUnit aggregator that produces a Typst PDF test report and parallel Docker-based BDD in CI; established documentation conventions (and moved the company docs site from mdBook to VitePress) with topical docs and Mermaid / C4 / D2 architecture diagrams, and contributed to open-source Rust libraries for layer-2 network monitoring and flame-graph performance analysis.</li>
           </ul>
         </article>
-        <article class="entry">
+        <article class="entry" id="experience/helitune">
           <h3>⚙️ Software Engineer<span class="org"> — Helitune/Beran Instruments</span></h3>
           <p class="meta">June 2015 - December 2019 · Torrington, North Devon</p>
           <ul>
@@ -132,7 +132,7 @@ dl.skills dd { margin: 0; }
           </ul>
         </article>
       </section>
-      <section>
+      <section id="skills">
         <h2>Skills</h2>
         <dl class="skills">
           <dt>Systems Programming</dt>
@@ -163,9 +163,9 @@ dl.skills dd { margin: 0; }
           <dd>C#/WPF, F#, Java, PowerShell, SQL Server, NUnit, GoogleTest/GoogleMock, TeamCity, vSphere, packer/vagrant</dd>
         </dl>
       </section>
-      <section>
+      <section id="projects">
         <h2>Projects</h2>
-        <article class="entry">
+        <article class="entry" id="projects/sailboat-simulator">
           <h3>⛵ Author<span class="org"> — STDA Sailboat Simulator</span></h3>
           <p class="meta">2023- · GitHub</p>
           <ul>
@@ -174,7 +174,7 @@ dl.skills dd { margin: 0; }
             <li>Rust and Python, working toward calibrating the model against real-world data for a hardware retrofit and autonomous-control trials.</li>
           </ul>
         </article>
-        <article class="entry">
+        <article class="entry" id="projects/homebox-addon">
           <h3>🏠 Author<span class="org"> — Homebox Home Assistant Add-on</span></h3>
           <p class="meta">2025- · GitHub</p>
           <ul>
@@ -183,14 +183,14 @@ dl.skills dd { margin: 0; }
             <li>Maintained add-on repository with a containerised build and release flow.</li>
           </ul>
         </article>
-        <article class="entry">
+        <article class="entry" id="projects/mdbook-combiner">
           <h3>📖 Author<span class="org"> — Md-book combiner</span></h3>
           <p class="meta">2023- · Github</p>
           <ul>
             <li>Small tool that combines mdBooks from multiple repositories into one site, shipped through automated releases.</li>
           </ul>
         </article>
-        <article class="entry">
+        <article class="entry" id="projects/jjui-plugin-manager">
           <h3>🔌 Author<span class="org"> — jjui-pm</span></h3>
           <p class="meta">2026- · GitHub</p>
           <ul>
@@ -199,7 +199,7 @@ dl.skills dd { margin: 0; }
             <li>Reflects deep day-to-day use of Jujutsu and the Rust terminal-UI ecosystem.</li>
           </ul>
         </article>
-        <article class="entry">
+        <article class="entry" id="projects/nrf52-hal">
           <h3>🔧 Contributor<span class="org"> — Rust nRF52 Hal</span></h3>
           <p class="meta">2018- · Github</p>
           <ul>
@@ -208,23 +208,23 @@ dl.skills dd { margin: 0; }
           </ul>
         </article>
       </section>
-      <section>
+      <section id="education">
         <h2>Education</h2>
-        <article class="entry">
+        <article class="entry" id="education/open-university">
           <h3>🎓 BSc. in Computing and Psychology<span class="org"> — The Open University</span></h3>
           <p class="meta">2011 - 2015 · England</p>
           <ul>
             <li>Software development and the psychology behind user interface design</li>
           </ul>
         </article>
-        <article class="entry">
+        <article class="entry" id="education/c-realtime">
           <h3>⚡ C for Real-Time Developers<span class="org"> — Feabhas</span></h3>
           <p class="meta">2016 · Royal Wootton Bassett</p>
           <ul>
             <li>Intensive five day course on writing low-level C with and without a real time operating system.</li>
           </ul>
         </article>
-        <article class="entry">
+        <article class="entry" id="education/advanced-cpp">
           <h3>🔧 Advanced C++ Development<span class="org"> — Feabhas</span></h3>
           <p class="meta">2016 · Royal Wootton Bassett</p>
           <ul>

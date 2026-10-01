@@ -1,5 +1,6 @@
 use std::{
     cell::{Cell, RefCell},
+    collections::HashSet,
     io,
     rc::Rc,
 };
@@ -14,13 +15,22 @@ use ratzilla::{
     },
     event::{KeyCode, MouseButton, MouseEventKind},
     ratatui::{
-        backend::Backend,
+        backend::{Backend, ClearType, WindowSize},
+        buffer::Cell as BufferCell,
+        layout::Size,
         prelude::*,
         widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
     },
-    web_sys::{self, wasm_bindgen::JsCast},
+    web_sys::{
+        self,
+        wasm_bindgen::{convert::FromWasmAbi, prelude::Closure, JsCast, JsValue},
+        WheelEvent,
+    },
+    error::Error as RatzillaError,
+    event::{KeyEvent, MouseEvent},
     CanvasBackend, WebEventHandler, WebGl2Backend, WebRenderer,
 };
+use unicode_width::UnicodeWidthStr;
 
 /// Terminal font (loaded by index.html from the Fira Code CDN stylesheet).
 const FONT_FAMILY: &str = "Fira Code";
@@ -81,6 +91,22 @@ impl Screen {
             Screen::Education => "Education",
             Screen::Projects => "Projects",
         }
+    }
+
+    /// URL fragment for the section (`#experience`); the welcome screen has none.
+    fn slug(&self) -> Option<&'static str> {
+        match self {
+            Screen::Welcome => None,
+            Screen::About => Some("about"),
+            Screen::Experience => Some("experience"),
+            Screen::Skills => Some("skills"),
+            Screen::Education => Some("education"),
+            Screen::Projects => Some("projects"),
+        }
+    }
+
+    fn from_slug(slug: &str) -> Option<Screen> {
+        Screen::all().into_iter().find(|s| s.slug() == Some(slug))
     }
 
     /// Heading shown at the top of the section.
@@ -214,6 +240,61 @@ impl App {
         };
     }
 
+    /// One step down (`forward`) or up, shared by ↑/↓ and the mouse wheel: moves
+    /// the menu or list selection, or scrolls a reading view.
+    fn step(&mut self, forward: bool, scroll_max: u16) {
+        if self.screen == Screen::Welcome {
+            if forward {
+                self.next_menu();
+            } else {
+                self.prev_menu();
+            }
+        } else if self.is_scroll_view() {
+            self.scroll = if forward {
+                (self.scroll + 1).min(scroll_max)
+            } else {
+                self.scroll.saturating_sub(1)
+            };
+        } else {
+            self.step_selection(forward);
+        }
+    }
+
+    /// The deep link for the current view, without the leading `#`:
+    /// `experience`, `experience/razorsecure`, or `experience/razorsecure/2`
+    /// (1-based highlight). Empty on the welcome screen.
+    fn route(&self) -> String {
+        let Some(screen) = self.screen.slug() else {
+            return String::new();
+        };
+        match (self.current_entry(), self.level) {
+            (Some(e), Level::Detail) => format!("{screen}/{}", e.slug),
+            (Some(e), Level::Focus) => format!("{screen}/{}/{}", e.slug, self.selected_bullet + 1),
+            _ => screen.to_string(),
+        }
+    }
+
+    /// Navigate to a deep link, going as deep as the route stays valid (an
+    /// unknown entry lands on the section's list rather than failing).
+    fn apply_route(&mut self, route: &str) {
+        self.go_home();
+        let mut parts = route.trim_start_matches('#').split('/').filter(|p| !p.is_empty());
+        let Some(screen) = parts.next().and_then(Screen::from_slug) else {
+            return;
+        };
+        self.goto_section(screen);
+        let Some(entries) = section_entries(screen) else {
+            return;
+        };
+        let Some(i) = parts.next().and_then(|slug| entries.iter().position(|e| e.slug == slug)) else {
+            return;
+        };
+        self.open_entry(i);
+        if let Some(n) = parts.next().and_then(|n| n.parse::<usize>().ok()).filter(|n| *n >= 1) {
+            self.open_bullet(n - 1);
+        }
+    }
+
     /// Step back one level: focus -> detail -> list -> home.
     fn back(&mut self) {
         if self.is_section() {
@@ -329,12 +410,122 @@ fn start() -> io::Result<()> {
             .enable_hyperlinks(),
     );
     match webgl {
-        Ok(backend) => run(Terminal::new(backend)?),
+        Ok(backend) => run(Terminal::new(WideGlyphFix::new(backend))?),
         Err(e) => {
             web_sys::console::warn_1(&format!("WebGL2 unavailable ({e}); using canvas").into());
             let backend = CanvasBackend::new_with_options(CanvasBackendOptions::new().grid_id(ROOT_ID))?;
-            run(Terminal::new(backend)?)
+            run(Terminal::new(WideGlyphFix::new(backend))?)
         }
+    }
+}
+
+/// Works around ghosting between ratatui 0.30 and ratzilla's WebGL2 backend.
+/// beamterm draws a wide glyph (emoji) as two half-glyphs, the right half in
+/// the next cell, but when a narrow symbol later replaces the wide one,
+/// ratatui's diff doesn't resend that next cell (real terminals clear it
+/// themselves) — so half an emoji lingers on screen. This remembers where wide
+/// glyphs were drawn and also blanks the trailing cell when one is replaced.
+struct WideGlyphFix<B> {
+    inner: B,
+    wide: HashSet<(u16, u16)>,
+}
+
+impl<B> WideGlyphFix<B> {
+    fn new(inner: B) -> Self {
+        Self {
+            inner,
+            wide: HashSet::new(),
+        }
+    }
+}
+
+impl<B: Backend> Backend for WideGlyphFix<B> {
+    type Error = B::Error;
+
+    fn draw<'a, I>(&mut self, content: I) -> Result<(), Self::Error>
+    where
+        I: Iterator<Item = (u16, u16, &'a BufferCell)>,
+    {
+        let cols = self.inner.size()?.width;
+        let content: Vec<_> = content.collect();
+        // Blank cells to send, each right after the cell that displaced a
+        // wide glyph, so a genuine update to the trailing cell later in the
+        // same batch still wins.
+        let blanks: Vec<Option<BufferCell>> = content
+            .iter()
+            .map(|&(x, y, cell)| {
+                if cell.symbol().width() >= 2 {
+                    self.wide.insert((x, y));
+                    None
+                } else if self.wide.remove(&(x, y)) && x + 1 < cols {
+                    let mut blank = BufferCell::EMPTY;
+                    blank.set_style(cell.style());
+                    Some(blank)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let merged = content.iter().zip(&blanks).flat_map(|(&(x, y, cell), blank)| {
+            std::iter::once((x, y, cell)).chain(blank.as_ref().map(|b| (x + 1, y, b)))
+        });
+        self.inner.draw(merged)
+    }
+
+    fn clear(&mut self) -> Result<(), Self::Error> {
+        self.wide.clear();
+        self.inner.clear()
+    }
+
+    fn clear_region(&mut self, clear_type: ClearType) -> Result<(), Self::Error> {
+        self.wide.clear();
+        self.inner.clear_region(clear_type)
+    }
+
+    fn append_lines(&mut self, n: u16) -> Result<(), Self::Error> {
+        self.inner.append_lines(n)
+    }
+    fn hide_cursor(&mut self) -> Result<(), Self::Error> {
+        self.inner.hide_cursor()
+    }
+    fn show_cursor(&mut self) -> Result<(), Self::Error> {
+        self.inner.show_cursor()
+    }
+    fn get_cursor_position(&mut self) -> Result<Position, Self::Error> {
+        self.inner.get_cursor_position()
+    }
+    fn set_cursor_position<P: Into<Position>>(&mut self, position: P) -> Result<(), Self::Error> {
+        self.inner.set_cursor_position(position)
+    }
+    fn size(&self) -> Result<Size, Self::Error> {
+        self.inner.size()
+    }
+    fn window_size(&mut self) -> Result<WindowSize, Self::Error> {
+        self.inner.window_size()
+    }
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        self.inner.flush()
+    }
+}
+
+impl<B: WebEventHandler> WebEventHandler for WideGlyphFix<B> {
+    fn on_mouse_event<F>(&mut self, callback: F) -> Result<(), RatzillaError>
+    where
+        F: FnMut(MouseEvent) + 'static,
+    {
+        self.inner.on_mouse_event(callback)
+    }
+    fn clear_mouse_events(&mut self) {
+        self.inner.clear_mouse_events()
+    }
+    fn on_key_event<F>(&mut self, callback: F) -> Result<(), RatzillaError>
+    where
+        F: FnMut(KeyEvent) + 'static,
+    {
+        self.inner.on_key_event(callback)
+    }
+    fn clear_key_events(&mut self) {
+        self.inner.clear_key_events()
     }
 }
 
@@ -350,6 +541,79 @@ fn focus_terminal() {
     }
 }
 
+fn current_hash() -> String {
+    web_sys::window()
+        .and_then(|w| w.location().hash().ok())
+        .unwrap_or_default()
+}
+
+/// Record the current view in the URL. Each navigation becomes a history
+/// entry, so the browser's back button steps back through the CV; selection
+/// changes don't alter the route and so don't add entries.
+fn push_route(app: &App) {
+    set_route(app, true);
+}
+
+fn set_route(app: &App, push: bool) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let route = app.route();
+    if current_hash().trim_start_matches('#') == route {
+        return;
+    }
+    let url = if route.is_empty() {
+        // Drop the fragment entirely rather than leaving a bare `#`.
+        let loc = window.location();
+        loc.pathname().unwrap_or_default() + &loc.search().unwrap_or_default()
+    } else {
+        format!("#{route}")
+    };
+    if let Ok(history) = window.history() {
+        let _ = if push {
+            history.push_state_with_url(&JsValue::NULL, "", Some(&url))
+        } else {
+            history.replace_state_with_url(&JsValue::NULL, "", Some(&url))
+        };
+    }
+}
+
+/// Attach a DOM event listener for the lifetime of the page.
+fn listen<E: FromWasmAbi + 'static>(
+    target: &web_sys::EventTarget,
+    event: &str,
+    handler: impl FnMut(E) + 'static,
+) {
+    let closure = Closure::<dyn FnMut(E)>::new(handler);
+    let _ = target.add_event_listener_with_callback(event, closure.as_ref().unchecked_ref());
+    closure.forget();
+}
+
+/// Mouse-wheel / trackpad scrolling, which neither ratzilla backend reports.
+/// Deltas are accumulated and converted into the same steps as ↑/↓, so a
+/// trackpad's stream of small deltas and a wheel's few large ones feel alike.
+fn wheel_handler(app: Rc<RefCell<App>>, scroll_max: Rc<Cell<u16>>) -> impl FnMut(WheelEvent) {
+    const LINE_PX: f64 = 20.0;
+    let mut pending = 0.0f64;
+    move |ev: WheelEvent| {
+        ev.prevent_default();
+        let mut app = app.borrow_mut();
+        let delta = match ev.delta_mode() {
+            WheelEvent::DOM_DELTA_LINE => ev.delta_y() * LINE_PX,
+            WheelEvent::DOM_DELTA_PAGE => ev.delta_y() * LINE_PX * 20.0,
+            _ => ev.delta_y(),
+        };
+        // Reading views scroll a line per step; menus and lists move a whole
+        // item, so they need a bigger push per step.
+        let per_step = if app.is_scroll_view() { LINE_PX } else { 3.0 * LINE_PX };
+        pending += delta;
+        while pending.abs() >= per_step {
+            app.step(pending > 0.0, scroll_max.get());
+            pending -= per_step.copysign(pending);
+        }
+    }
+}
+
 fn run<B>(mut terminal: Terminal<B>) -> io::Result<()>
 where
     B: Backend + WebEventHandler + 'static,
@@ -359,6 +623,26 @@ where
     // Maximum scroll offset for the current view, computed each render so the
     // key handler can clamp downward scrolling at the bottom of the content.
     let scroll_max: Rc<Cell<u16>> = Rc::new(Cell::new(0));
+
+    // Open whatever the URL points at (normalising a stale or mistyped link to
+    // the view actually shown), and follow the browser's back/forward —
+    // re-focusing the terminal, which history navigation can blur.
+    app.borrow_mut().apply_route(&current_hash());
+    set_route(&app.borrow(), false);
+    listen(&web_sys::window().expect("window"), "popstate", {
+        let app = app.clone();
+        move |_: web_sys::Event| {
+            app.borrow_mut().apply_route(&current_hash());
+            focus_terminal();
+        }
+    });
+
+    if let Some(root) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.get_element_by_id(ROOT_ID))
+    {
+        listen(&root, "wheel", wheel_handler(app.clone(), scroll_max.clone()));
+    }
 
     terminal.on_key_event({
         let app = app.clone();
@@ -385,24 +669,8 @@ where
                         }
                     }
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if app.screen == Screen::Welcome {
-                        app.next_menu();
-                    } else if app.is_scroll_view() {
-                        app.scroll = (app.scroll + 1).min(scroll_max.get());
-                    } else {
-                        app.step_selection(true);
-                    }
-                }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if app.screen == Screen::Welcome {
-                        app.prev_menu();
-                    } else if app.is_scroll_view() {
-                        app.scroll = app.scroll.saturating_sub(1);
-                    } else {
-                        app.step_selection(false);
-                    }
-                }
+                KeyCode::Down | KeyCode::Char('j') => app.step(true, scroll_max.get()),
+                KeyCode::Up | KeyCode::Char('k') => app.step(false, scroll_max.get()),
                 KeyCode::PageDown if app.is_scroll_view() => {
                     app.scroll = (app.scroll + 10).min(scroll_max.get());
                 }
@@ -418,6 +686,7 @@ where
                 KeyCode::Char('5') => app.goto_section(Screen::Projects),
                 _ => {}
             }
+            push_route(&app);
         }
     })?;
 
@@ -442,13 +711,16 @@ where
                 }
                 // ButtonUp rather than SingleClick: the WebGL2 backend only
                 // reports raw button transitions.
-                MouseEventKind::ButtonUp(MouseButton::Left) => match hit {
-                    Some(action) => app.activate(action),
-                    // A click on a screen with no interactive regions
-                    // (focus / About / Skills) steps back one level.
-                    None if regions.is_empty() => app.back(),
-                    None => {}
-                },
+                MouseEventKind::ButtonUp(MouseButton::Left) => {
+                    match hit {
+                        Some(action) => app.activate(action),
+                        // A click on a screen with no interactive regions
+                        // (focus / About / Skills) steps back one level.
+                        None if regions.is_empty() => app.back(),
+                        None => {}
+                    }
+                    push_route(&app);
+                }
                 _ => {}
             }
         }

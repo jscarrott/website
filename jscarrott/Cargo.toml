@@ -11,6 +11,11 @@ ratzilla = "0.3.1"
 # wasm instantiation. The `std` feature registers a std-backed implementation.
 critical-section = { version = "1.2", features = ["std"] }
 wasm-bindgen-futures = "0.4"
+# Matches beamterm's own wide-glyph test (see WideGlyphFix in main.rs).
+unicode-width = "0.2"
 # ratzilla re-exports web-sys; enable the extra APIs used here (focusing the
-# canvas, and awaiting the web font before the WebGL2 glyph atlas is built).
-web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "FontFaceSet", "console"] }
+# canvas, awaiting the web font before the WebGL2 glyph atlas is built, wheel
+# scrolling, and history-backed deep links).
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "FontFaceSet", "console",
+    "EventTarget", "Event", "UiEvent", "MouseEvent", "WheelEvent", "History", "Location",
+] }
