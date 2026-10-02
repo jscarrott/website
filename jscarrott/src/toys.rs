@@ -4,6 +4,10 @@
 //! * Experience: a train streaming network traffic to an on-train IDS (click:
 //!   inject a malformed frame and watch it get flagged). The fault is a
 //!   generic, made-up one: no real product's detection rules are depicted.
+//!   On the Helitune role it's a helicopter rotor drifting out of track and
+//!   balance instead (click: apply a fix), or, on its plant-monitoring
+//!   highlight, a turbine protection system (click: add unbalance until it
+//!   trips).
 //! * Skills: Ferris the Rust crab calling out skills (click: jump)
 //! * Education: Conway's Game of Life (click: drop a glider)
 //!
@@ -24,6 +28,8 @@ const RUST: Color = Color::Rgb(222, 165, 132);
 pub enum Toy {
     Lighthouse,
     Train,
+    Rotor,
+    Turbine,
     Ferris,
     Life,
 }
@@ -32,6 +38,8 @@ pub struct Toys {
     pub sail: sail::Sim,
     lighthouse: Lighthouse,
     train: Train,
+    rotor: Rotor,
+    turbine: Turbine,
     ferris: Ferris,
     life: Life,
     t: f64,
@@ -43,6 +51,8 @@ impl Toys {
             sail: sail::Sim::new(),
             lighthouse: Lighthouse::default(),
             train: Train::new(),
+            rotor: Rotor::new(),
+            turbine: Turbine::new(),
             ferris: Ferris::new(),
             life: Life::new(),
             t: 0.0,
@@ -58,6 +68,8 @@ impl Toys {
         }
         self.t += dt;
         self.train.step(dt, self.t);
+        self.rotor.step(dt);
+        self.turbine.step(dt);
         self.ferris.step(dt, self.t);
         self.life.step(dt);
     }
@@ -67,6 +79,8 @@ impl Toys {
         match toy {
             Toy::Lighthouse => self.lighthouse.foghorn_until = self.t + 1.8,
             Toy::Train => self.train.fault_queued = true,
+            Toy::Rotor => self.rotor.fix(self.t),
+            Toy::Turbine => self.turbine.add_unbalance(),
             Toy::Ferris => self.ferris.poke(self.t),
             Toy::Life => self.life.glider(col, row),
         }
@@ -76,6 +90,8 @@ impl Toys {
         match toy {
             Toy::Lighthouse => self.lighthouse.render(buf, area, self.t),
             Toy::Train => self.train.render(buf, area, self.t),
+            Toy::Rotor => self.rotor.render(buf, area, self.t),
+            Toy::Turbine => self.turbine.render(buf, area, self.t),
             Toy::Ferris => self.ferris.render(buf, area, self.t),
             Toy::Life => self.life.render(buf, area),
         }
@@ -432,6 +448,553 @@ impl Train {
                 fg(YELLOW),
             );
         }
+    }
+}
+
+// Rotor track & balance -------------------------------------------------------
+
+/// A four-bladed main rotor that slowly drifts out of track and balance. Each
+/// click is one track-and-balance fix: pitch-link and weight adjustments that
+/// pull the blades back into track and take out most of the 1/rev vibration.
+struct Rotor {
+    angle: f64,
+    /// Blade tip heights relative to the mean, in mm.
+    track: [f64; 4],
+    /// Mass-imbalance share of the 1/rev vibration, in ips.
+    imbalance: f64,
+    /// Vibration as displayed, easing towards the real value.
+    shown: f64,
+    drift_timer: f64,
+    fixes: u32,
+    fixed_until: f64,
+    rng: Rng,
+}
+
+impl Rotor {
+    /// Blades are told apart by colour, as on a real rotor head.
+    const BLADES: [(&'static str, Color); 4] =
+        [("R", RED), ("Y", YELLOW), ("B", TEAL), ("G", GREEN)];
+    const VIB_LIMIT: f64 = 0.2;
+    const SPREAD_LIMIT: f64 = 6.0;
+
+    fn new() -> Self {
+        let mut rotor = Self {
+            angle: 0.0,
+            track: [-2.75, 11.25, -8.75, 0.25],
+            imbalance: 0.55,
+            shown: 0.0,
+            drift_timer: 0.0,
+            fixes: 0,
+            fixed_until: 0.0,
+            rng: Rng(0x9E37_79B9_7F4A_7C15),
+        };
+        rotor.shown = rotor.vibration();
+        rotor
+    }
+
+    fn spread(&self) -> f64 {
+        let max = self.track.iter().copied().fold(f64::MIN, f64::max);
+        let min = self.track.iter().copied().fold(f64::MAX, f64::min);
+        max - min
+    }
+
+    fn vibration(&self) -> f64 {
+        0.04 + self.imbalance + 0.012 * self.spread()
+    }
+
+    fn in_limits(&self) -> bool {
+        self.vibration() < Self::VIB_LIMIT && self.spread() < Self::SPREAD_LIMIT
+    }
+
+    fn step(&mut self, dt: f64) {
+        self.angle += 2.2 * dt;
+        self.shown += (self.vibration() - self.shown) * (1.0 - (-3.0 * dt).exp());
+        // Every so often a blade wanders out of track and the balance worsens,
+        // so there's always another fix to make.
+        self.drift_timer += dt;
+        if self.drift_timer > 7.0 {
+            self.drift_timer = 0.0;
+            let r = self.rng.next();
+            let mm = 2.0 + ((r >> 8) % 300) as f64 / 100.0;
+            self.track[(r % 4) as usize] += if r >> 20 & 1 == 0 { mm } else { -mm };
+            self.imbalance = (self.imbalance + 0.03 + ((r >> 32) % 50) as f64 / 1000.0).min(0.7);
+        }
+    }
+
+    fn fix(&mut self, t: f64) {
+        let mean = self.track.iter().sum::<f64>() / 4.0;
+        for h in &mut self.track {
+            *h = (*h - mean) * 0.25;
+        }
+        self.imbalance *= 0.3;
+        self.fixes += 1;
+        self.fixed_until = t + 2.0;
+    }
+
+    fn render(&self, buf: &mut Buffer, area: Rect, t: f64) {
+        let w = i32::from(area.width);
+        let h = i32::from(area.height);
+        let vib = self.shown;
+        let severity = if vib > 0.5 { RED } else { YELLOW };
+
+        // Status line.
+        if t < self.fixed_until {
+            put(
+                buf,
+                area,
+                1,
+                0,
+                "✓ pitch links adjusted · weights fitted",
+                fg(GREEN),
+            );
+        } else if self.in_limits() {
+            put(
+                buf,
+                area,
+                1,
+                0,
+                "✓ track & balance within limits",
+                fg(GREEN),
+            );
+        } else {
+            put(buf, area, 1, 0, "⚠ out of limits", fg(severity).bold());
+        }
+        let readout = format!(
+            "1/rev {vib:.2} ips  ·  spread {:.0} mm  ·  fixes {}",
+            self.spread(),
+            self.fixes
+        );
+        put(buf, area, 1, 1, &readout, fg(NORD3));
+
+        let top = 3;
+        let body = h - top;
+        if body < 5 {
+            return;
+        }
+
+        // Top-down rotor, shaking with the vibration, tail boom to the right.
+        let r = ((body - 1) / 2).min((w - 26) / 6).max(2);
+        let cy = top + body / 2;
+        let cx = 1 + 2 * r + ((self.angle * 4.0).sin() * vib * 1.6).round() as i32;
+        for x in cx + 1..=cx + 2 * r + 2 {
+            put(buf, area, x, cy, "━", fg(NORD3));
+        }
+        put(buf, area, cx + 2 * r + 3, cy, "╋", fg(NORD4));
+        for k in 0..64 {
+            let a = f64::from(k) / 64.0 * std::f64::consts::TAU;
+            let x = cx + (2.0 * f64::from(r) * a.cos()).round() as i32;
+            let y = cy - (f64::from(r) * a.sin()).round() as i32;
+            put(buf, area, x, y, "·", fg(mix(NORD3, NORD0, 0.5)));
+        }
+        for (i, (_, colour)) in Self::BLADES.iter().enumerate() {
+            let a = self.angle + i as f64 * std::f64::consts::FRAC_PI_2;
+            let (dx, dy) = (2.0 * a.cos(), -a.sin());
+            // Cells are twice as tall as wide, so pick the stroke from the
+            // blade's on-screen angle.
+            let on_screen = (-dy).atan2(dx).rem_euclid(std::f64::consts::PI);
+            let eighth = std::f64::consts::PI / 8.0;
+            let stroke = if on_screen < eighth || on_screen > 7.0 * eighth {
+                "─"
+            } else if on_screen < 3.0 * eighth {
+                "╱"
+            } else if on_screen < 5.0 * eighth {
+                "│"
+            } else {
+                "╲"
+            };
+            for k in 1..2 * r {
+                let f = f64::from(k) / 2.0;
+                let (x, y) = (cx + (f * dx).round() as i32, cy + (f * dy).round() as i32);
+                put(buf, area, x, y, stroke, fg(*colour));
+            }
+            let (x, y) = (
+                cx + (f64::from(r) * dx).round() as i32,
+                cy + (f64::from(r) * dy).round() as i32,
+            );
+            put(buf, area, x, y, "●", fg(*colour).bold());
+        }
+        put(buf, area, cx, cy, "◉", fg(NORD6).bold());
+
+        // Beside it: the vibration trace and the blade-track chart.
+        let rx = 4 * r + 7;
+        let ww = w - rx - 1;
+        if ww < 14 {
+            return;
+        }
+        let bw = ww - 6;
+        let centre = rx + 2 + bw / 2;
+        put(buf, area, rx, h - 5, "blade track, mm", fg(NORD3));
+        for (i, (name, colour)) in Self::BLADES.iter().enumerate() {
+            let y = h - 4 + i as i32;
+            put(buf, area, rx, y, name, fg(*colour).bold());
+            for x in rx + 2..rx + 2 + bw {
+                put(buf, area, x, y, "─", fg(mix(NORD3, NORD0, 0.4)));
+            }
+            put(buf, area, centre, y, "┼", fg(NORD3));
+            let off = (self.track[i] / 20.0 * f64::from(bw / 2)).round() as i32;
+            put(
+                buf,
+                area,
+                (centre + off).clamp(rx + 2, rx + 1 + bw),
+                y,
+                "●",
+                fg(*colour),
+            );
+            put(
+                buf,
+                area,
+                rx + 3 + bw,
+                y,
+                &format!("{:+3.0}", self.track[i]),
+                fg(NORD4),
+            );
+        }
+
+        let rows = h - 6 - top;
+        if rows < 3 {
+            return;
+        }
+        put(buf, area, rx, top, "1/rev vibration", fg(NORD3));
+        let half = f64::from(rows - 1) / 2.0;
+        let mid = top + 1 + (rows - 1) / 2;
+        let colour = if self.in_limits() { GREEN } else { severity };
+        let mut prev = None;
+        for x in 0..ww {
+            put(buf, area, rx + x, mid, "·", fg(mix(NORD3, NORD0, 0.5)));
+            let v = vib * (t * 9.0 - f64::from(x) * 0.25).sin();
+            let y = mid - (v / 0.8 * half).round().clamp(-half, half) as i32;
+            // Join steep steps so the trace reads as a line, not scattered dots.
+            if let Some(p) = prev {
+                for yy in (y.min(p) + 1)..y.max(p) {
+                    put(buf, area, rx + x, yy, "│", fg(colour));
+                }
+            }
+            put(buf, area, rx + x, y, "•", fg(colour));
+            prev = Some(y);
+        }
+    }
+}
+
+// Turbine protection -----------------------------------------------------------
+
+#[derive(Copy, Clone, PartialEq)]
+enum Phase {
+    Running,
+    /// Tripped on a bearing (index) at a peak vibration, coasting down.
+    Tripped(usize, f64),
+    /// Stopped, being rebalanced, until the given time on the toy's clock.
+    Stopped(f64),
+    RunUp,
+}
+
+/// A turbine-generator shaft train under a protection system. Each click adds
+/// unbalance, which then keeps developing: bearing vibration climbs through
+/// the alarm level to the trip level, the set trips and coasts down, and after
+/// a rebalance it runs back up.
+struct Turbine {
+    rpm: f64,
+    angle: f64,
+    /// Developing unbalance, scaled per bearing by `WEIGHT`.
+    fault: f64,
+    phase: Phase,
+    trips: u32,
+    t: f64,
+    /// Worst-bearing vibration, sampled for the trend chart, oldest first.
+    trend: std::collections::VecDeque<f64>,
+    sample_timer: f64,
+}
+
+impl Turbine {
+    const RATED: f64 = 3000.0;
+    /// Healthy bearing vibration at rated speed, mm/s.
+    const BASE: [f64; 4] = [1.8, 2.4, 2.1, 1.5];
+    /// How strongly the unbalance shows at each bearing.
+    const WEIGHT: [f64; 4] = [3.0, 6.0, 4.0, 2.0];
+    const ALARM: f64 = 7.1;
+    const TRIP: f64 = 11.0;
+    /// Shaft-train layout: bearing positions, then the turbine and generator
+    /// casings (start, width), all relative to the shaft's left end.
+    const SHAFT: i32 = 36;
+    const BEARINGS: [i32; 4] = [2, 18, 21, 33];
+    const TURBINE: (i32, i32) = (4, 12);
+    const GENERATOR: (i32, i32) = (23, 9);
+
+    fn new() -> Self {
+        let mut turbine = Self {
+            rpm: Self::RATED,
+            angle: 0.0,
+            fault: 0.0,
+            phase: Phase::Running,
+            trips: 0,
+            t: 0.0,
+            trend: std::collections::VecDeque::new(),
+            sample_timer: 0.0,
+        };
+        // Start with a healthy history so the chart has a baseline.
+        let healthy = turbine.worst().1;
+        turbine.trend.extend(std::iter::repeat_n(healthy, 200));
+        turbine
+    }
+
+    fn vibration(&self, bearing: usize) -> f64 {
+        let speed = self.rpm / Self::RATED;
+        (Self::BASE[bearing] + self.fault * Self::WEIGHT[bearing]) * speed * speed
+    }
+
+    /// The bearing vibrating hardest, and its level.
+    fn worst(&self) -> (usize, f64) {
+        (0..4)
+            .map(|i| (i, self.vibration(i)))
+            .fold((0, 0.0), |a, b| if b.1 > a.1 { b } else { a })
+    }
+
+    fn add_unbalance(&mut self) {
+        if matches!(self.phase, Phase::Running | Phase::RunUp) {
+            self.fault += 0.5;
+        }
+    }
+
+    fn step(&mut self, dt: f64) {
+        self.t += dt;
+        self.angle += self.rpm / Self::RATED * 14.0 * dt;
+        self.sample_timer += dt;
+        if self.sample_timer > 0.3 {
+            self.sample_timer = 0.0;
+            self.trend.push_back(self.worst().1);
+            if self.trend.len() > 200 {
+                self.trend.pop_front();
+            }
+        }
+        match self.phase {
+            Phase::Running | Phase::RunUp => {
+                if self.fault > 0.0 {
+                    self.fault += 0.08 * dt;
+                }
+                if self.phase == Phase::RunUp {
+                    self.rpm = (self.rpm + 600.0 * dt).min(Self::RATED);
+                    if self.rpm >= Self::RATED {
+                        self.phase = Phase::Running;
+                    }
+                }
+                let (bearing, level) = self.worst();
+                if level >= Self::TRIP {
+                    self.phase = Phase::Tripped(bearing, level);
+                    self.trips += 1;
+                }
+            }
+            Phase::Tripped(..) => {
+                self.rpm = (self.rpm - (self.rpm * 0.35 + 120.0) * dt).max(0.0);
+                if self.rpm == 0.0 {
+                    self.fault = 0.0;
+                    self.phase = Phase::Stopped(self.t + 2.0);
+                }
+            }
+            Phase::Stopped(until) => {
+                if self.t >= until {
+                    self.phase = Phase::RunUp;
+                }
+            }
+        }
+    }
+
+    fn colour(level: f64) -> Color {
+        if level >= Self::TRIP {
+            RED
+        } else if level >= Self::ALARM {
+            YELLOW
+        } else {
+            GREEN
+        }
+    }
+
+    fn render(&self, buf: &mut Buffer, area: Rect, t: f64) {
+        let w = i32::from(area.width);
+        let h = i32::from(area.height);
+        let (worst, level) = self.worst();
+        let rpm = self.rpm.round();
+
+        // Status line.
+        let (status, style) = match self.phase {
+            Phase::Tripped(b, peak) => (
+                format!("⛔ TRIP · bearing {} at {peak:.1} mm/s", b + 1),
+                fg(RED).bold(),
+            ),
+            Phase::Stopped(_) => ("◌ stopped · rebalancing".to_string(), fg(NORD4)),
+            Phase::RunUp => (format!("↻ run-up · {rpm:.0} rpm"), fg(TEAL)),
+            Phase::Running if level >= Self::ALARM => (
+                format!("⚠ ALARM · bearing {} high vibration", worst + 1),
+                fg(YELLOW).bold(),
+            ),
+            Phase::Running => (format!("✓ running · {rpm:.0} rpm"), fg(GREEN)),
+        };
+        put(buf, area, 1, 0, &status, style);
+        let readout = format!(
+            "alarm {:.1}  ·  trip {:.1} mm/s  ·  trips {}",
+            Self::ALARM,
+            Self::TRIP,
+            self.trips
+        );
+        put(buf, area, 1, 1, &readout, fg(NORD3));
+
+        // The shaft train, side on: turbine, bearings, generator.
+        let x0 = 1;
+        let y = 4;
+        for x in 0..Self::SHAFT {
+            put(buf, area, x0 + x, y, "═", fg(NORD3));
+        }
+        let (tx, tw) = Self::TURBINE;
+        put(
+            buf,
+            area,
+            x0 + tx,
+            y - 1,
+            &format!("╱{}╲", "▔".repeat(tw as usize - 2)),
+            fg(NORD4),
+        );
+        put(
+            buf,
+            area,
+            x0 + tx,
+            y + 1,
+            &format!("╲{}╱", "▁".repeat(tw as usize - 2)),
+            fg(NORD4),
+        );
+        put(buf, area, x0 + tx, y, "▏", fg(NORD4));
+        put(buf, area, x0 + tx + tw - 1, y, "▕", fg(NORD4));
+        // Blade rows: a spinning pattern that blurs as the speed rises.
+        let hot = mix(NORD3, ORANGE, self.rpm / Self::RATED);
+        for k in 0..tw - 2 {
+            let blade = ["│", "╱", "─", "╲"][((k + self.angle as i32) % 4) as usize];
+            put(buf, area, x0 + tx + 1 + k, y, blade, fg(hot));
+        }
+        let (gx, gw) = Self::GENERATOR;
+        let span = "─".repeat(gw as usize - 2);
+        put(buf, area, x0 + gx, y - 1, &format!("┌{span}┐"), fg(NORD4));
+        put(buf, area, x0 + gx, y, "┤", fg(NORD4));
+        put(buf, area, x0 + gx + gw / 2 - 1, y, "GEN", fg(NORD4));
+        put(buf, area, x0 + gx + gw - 1, y, "├", fg(NORD4));
+        put(buf, area, x0 + gx, y + 1, &format!("└{span}┘"), fg(NORD4));
+        for (i, &bx) in Self::BEARINGS.iter().enumerate() {
+            let level = self.vibration(i);
+            // Bearings over the alarm level flash.
+            let flash = level >= Self::ALARM && (t * 6.0).sin() > 0.0;
+            let c = if flash { NORD6 } else { Self::colour(level) };
+            put(buf, area, x0 + bx, y, "╪", fg(c).bold());
+            put(buf, area, x0 + bx, y + 2, &(i + 1).to_string(), fg(NORD3));
+        }
+
+        // Bearing vibration bars with the alarm and trip levels marked.
+        let top = y + 4;
+        let bw = (w - 13).clamp(8, 40);
+        let full = Self::TRIP * 1.25;
+        let at = |v: f64| ((v / full) * f64::from(bw)).round() as i32;
+        if top + 4 <= h {
+            for i in 0..4 {
+                let row = top + i as i32;
+                let level = self.vibration(i);
+                put(buf, area, 1, row, &format!("B{}", i + 1), fg(NORD4));
+                let filled = at(level).min(bw);
+                for x in 0..bw {
+                    let (ch, c) = if x < filled {
+                        ("█", Self::colour(level))
+                    } else if x == at(Self::TRIP) {
+                        ("┃", RED)
+                    } else if x == at(Self::ALARM) {
+                        ("┊", YELLOW)
+                    } else {
+                        ("─", mix(NORD3, NORD0, 0.4))
+                    };
+                    put(buf, area, 4 + x, row, ch, fg(c));
+                }
+                put(buf, area, 5 + bw, row, &format!("{level:>4.1}"), fg(NORD4));
+            }
+        }
+
+        // Along the bottom: the worst bearing's vibration over the last
+        // half-minute or so, against the alarm and trip levels.
+        let chart_top = top + 6;
+        let rows = h - chart_top - 1;
+        let cw = w - 2;
+        if rows >= 4 && cw >= 16 {
+            put(
+                buf,
+                area,
+                1,
+                chart_top - 1,
+                "trend · worst bearing, mm/s",
+                fg(NORD3),
+            );
+            let row_of = |v: f64| {
+                chart_top + rows - 1 - ((v / full).min(1.0) * f64::from(rows - 1)).round() as i32
+            };
+            for x in 0..cw {
+                put(
+                    buf,
+                    area,
+                    1 + x,
+                    row_of(Self::ALARM),
+                    "┄",
+                    fg(mix(YELLOW, NORD0, 0.5)),
+                );
+                put(
+                    buf,
+                    area,
+                    1 + x,
+                    row_of(Self::TRIP),
+                    "┄",
+                    fg(mix(RED, NORD0, 0.5)),
+                );
+            }
+            // Newest sample at the right edge.
+            let n = self.trend.len().min(cw as usize);
+            let mut prev = None;
+            for (k, &v) in self.trend.iter().skip(self.trend.len() - n).enumerate() {
+                let x = 1 + cw - n as i32 + k as i32;
+                let y = row_of(v);
+                if let Some(p) = prev {
+                    for yy in (y.min(p) + 1)..y.max(p) {
+                        put(buf, area, x, yy, "│", fg(Self::colour(v)));
+                    }
+                }
+                put(buf, area, x, y, "•", fg(Self::colour(v)));
+                prev = Some(y);
+            }
+        }
+
+        // Beside the machine, when there's room: the shaft orbit at the worst
+        // bearing, as a pair of proximity probes would see it.
+        let ox = x0 + Self::SHAFT + 3;
+        let ow = w - ox - 1;
+        if ow < 16 || h < 12 {
+            return;
+        }
+        put(
+            buf,
+            area,
+            ox,
+            3,
+            &format!("orbit · bearing {}", worst + 1),
+            fg(NORD3),
+        );
+        let ry = 3.0;
+        let rx = (f64::from(ow / 2) - 1.0).min(10.0);
+        let (cx, cy) = (ox + ow / 2, 8);
+        put(buf, area, cx, cy, "┼", fg(NORD3));
+        let scale = 0.25 + 0.75 * (level / Self::TRIP).min(1.0);
+        let c = Self::colour(level);
+        let point = |a: f64| {
+            (
+                cx + (rx * scale * a.cos()).round() as i32,
+                cy - (ry * scale * (a + 0.7).sin()).round() as i32,
+            )
+        };
+        for k in 0..72 {
+            let (x, y) = point(f64::from(k) / 72.0 * std::f64::consts::TAU);
+            put(buf, area, x, y, "·", fg(mix(c, NORD0, 0.4)));
+        }
+        // The keyphasor dot running round the orbit.
+        let (x, y) = point(self.angle);
+        put(buf, area, x, y, "●", fg(c).bold());
     }
 }
 
