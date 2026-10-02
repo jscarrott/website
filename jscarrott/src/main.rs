@@ -1153,12 +1153,28 @@ fn panel(f: &mut Frame<'_>, area: Rect) {
     f.render_widget(Block::default().style(Style::default().bg(NORD0)), area);
 }
 
-/// The toy that lives on a section's screen, with its panel title.
-fn section_toy(screen: Screen) -> Option<(toys::Toy, &'static str)> {
-    match screen {
+/// The toy that lives on a section's screen, with its panel title. On
+/// Experience it follows the highlighted role (and, for Helitune, the
+/// highlighted highlight).
+fn section_toy(app: &App) -> Option<(toys::Toy, &'static str)> {
+    let helitune = app.current_entry().is_some_and(|e| e.slug == "helitune");
+    let plant_monitoring = app.level != Level::List
+        && app
+            .current_entry()
+            .and_then(|e| e.bullets.get(app.selected_bullet))
+            .is_some_and(|b| b.lead.contains("condition monitoring"));
+    match app.screen {
         Screen::About => Some((
             toys::Toy::Lighthouse,
             " North Devon light · click for the foghorn ",
+        )),
+        Screen::Experience if helitune && plant_monitoring => Some((
+            toys::Toy::Turbine,
+            " 🏭 Turbine protection · click to add unbalance ",
+        )),
+        Screen::Experience if helitune => Some((
+            toys::Toy::Rotor,
+            " 🚁 Rotor track & balance · click to apply a fix ",
         )),
         Screen::Experience => Some((
             toys::Toy::Train,
@@ -1172,15 +1188,9 @@ fn section_toy(screen: Screen) -> Option<(toys::Toy, &'static str)> {
 
 /// Draw a section's toy (or, for Projects, the sailboat chart) in a panel and
 /// make it clickable.
-fn toy_panel(
-    f: &mut Frame<'_>,
-    area: Rect,
-    screen: Screen,
-    regions: &Regions,
-    toys: &mut toys::Toys,
-) {
+fn toy_panel(f: &mut Frame<'_>, area: Rect, app: &App, regions: &Regions, toys: &mut toys::Toys) {
     panel(f, area);
-    if screen == Screen::Projects {
+    if app.screen == Screen::Projects {
         sail::render(
             f,
             area,
@@ -1191,7 +1201,7 @@ fn toy_panel(
         regions.borrow_mut().push((area, ClickAction::OpenDemo));
         return;
     }
-    let Some((toy, title)) = section_toy(screen) else {
+    let Some((toy, title)) = section_toy(app) else {
         return;
     };
     let block = Block::default()
@@ -1467,7 +1477,7 @@ fn render_list(f: &mut Frame<'_>, app: &App, regions: &Regions, toys: &mut toys:
         vertical: 1,
     });
     let (list_area, toy_area) = with_side_panel(content);
-    toy_panel(f, toy_area, app.screen, regions, toys);
+    toy_panel(f, toy_area, app, regions, toys);
 
     // Row width available inside the borders, after the "▶ " marker.
     let row_width = usize::from(list_area.width.saturating_sub(4));
@@ -1539,7 +1549,7 @@ fn render_detail(f: &mut Frame<'_>, app: &App, regions: &Regions, toys: &mut toy
         vertical: 1,
     });
     let (list_area, toy_area) = with_side_panel(content);
-    toy_panel(f, toy_area, app.screen, regions, toys);
+    toy_panel(f, toy_area, app, regions, toys);
     panel(f, list_area);
 
     let block = Block::default()
@@ -1753,7 +1763,7 @@ fn render_about(
         vertical: 1,
     }));
     if let Some(toy) = toy_area {
-        toy_panel(f, toy, app.screen, regions, toys);
+        toy_panel(f, toy, app, regions, toys);
     }
     // about.md is hard-wrapped; rejoin each paragraph so it reflows to the
     // screen width (otherwise narrow screens get ragged double-wrapped lines).
@@ -1813,7 +1823,7 @@ fn render_skills(
         vertical: 1,
     }));
     if let Some(toy) = toy_area {
-        toy_panel(f, toy, app.screen, regions, toys);
+        toy_panel(f, toy, app, regions, toys);
     }
     render_scrollable(f, text_area, lines, app.scroll, scroll_max);
 
