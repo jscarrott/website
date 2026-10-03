@@ -377,6 +377,7 @@ impl App {
             | ClickAction::Back
             | ClickAction::Home
             | ClickAction::PlainView
+            | ClickAction::DownloadCv
             | ClickAction::Steer(_)
             | ClickAction::Autopilot => {}
         }
@@ -394,6 +395,7 @@ impl App {
             // handler, which owns the state they act on.
             ClickAction::Toy(_)
             | ClickAction::PlainView
+            | ClickAction::DownloadCv
             | ClickAction::Steer(_)
             | ClickAction::Autopilot => {}
         }
@@ -423,6 +425,7 @@ enum ClickAction {
     Back,
     Home,
     PlainView,
+    DownloadCv,
     Steer(i8),
     Autopilot,
 }
@@ -804,6 +807,16 @@ fn switch_to_plain() {
     let _ = window.location().reload();
 }
 
+/// The PDF CV, compiled from cv.typ and published next to the site by CI.
+const CV_PDF: &str = "John-Scarrott-CV.pdf";
+
+/// Open the PDF CV in a new tab, where it can be read or saved.
+fn open_cv_pdf() {
+    if let Some(window) = web_sys::window() {
+        let _ = window.open_with_url_and_target(CV_PDF, "_blank");
+    }
+}
+
 /// Frame timing for the animations, from the browser's monotonic clock.
 struct Clock {
     performance: Option<web_sys::Performance>,
@@ -975,6 +988,7 @@ where
                             toys.borrow_mut().sail.toggle_autopilot()
                         }
                         Some((_, ClickAction::PlainView)) => switch_to_plain(),
+                        Some((_, ClickAction::DownloadCv)) => open_cv_pdf(),
                         Some((_, action)) => app.activate(action),
                         // A click on the text of a reading view (focus / About /
                         // Skills) steps back one level.
@@ -1435,7 +1449,10 @@ fn render_welcome(f: &mut Frame<'_>, app: &App, regions: &Regions) {
             vertical: 0,
         }),
         "↑↓/Click Select • Enter Open • 1-5 Jump • Q Home",
-        &[("☰ Plain view", ClickAction::PlainView)],
+        &[
+            ("⤓ CV (PDF)", ClickAction::DownloadCv),
+            ("☰ Plain view", ClickAction::PlainView),
+        ],
         regions,
     );
 }
