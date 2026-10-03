@@ -533,6 +533,12 @@ fn emit_cv_html(
         esc(&github)
     ));
     o.push_str(&format!("          <span>{}</span>\n", esc(&location)));
+    // Compiled from cv.typ and published alongside the site by CI.
+    o.push_str(&format!(
+        "          <a href=\"{0}-{1}-CV.pdf\" download>Download CV (PDF)</a>\n",
+        esc(&first),
+        esc(&last)
+    ));
     o.push_str("        </p>\n      </header>\n");
 
     html_about(&mut o, about);

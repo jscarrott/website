@@ -29,6 +29,7 @@ jobs:
         with:
           sparse-checkout: |
             jscarrott
+          # cone mode also checks out top-level files, including cv.typ
       - name: Move folder
         run: mv jscarrott/* .
       - name: Set up cache
@@ -53,6 +54,14 @@ jobs:
           tool: trunk
       - name: Build project
         run: trunk build --release --verbose --public-url https://jscarrott.com
+      - name: Install Typst
+        uses: typst-community/setup-typst@v4
+        with:
+          typst-version: 0.15.1
+      - name: Install CV fonts
+        run: sudo apt-get update && sudo apt-get install -y fonts-liberation
+      - name: Compile the PDF CV into the site
+        run: typst compile cv.typ dist/John-Scarrott-CV.pdf
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
