@@ -1,8 +1,8 @@
 I'm a software engineer and platform lead at RazorSecure, where we build intrusion
 detection for the rail industry — on-train agents reporting back to a wayside and
-cloud platform. I set the technical direction across our platforms and am currently
-leading the migration of our on-train detection agent from Python to Rust, alongside
-building the internal tooling our engineers and testers rely on day to day.
+cloud platform. I set the technical direction across our platforms, led the
+migration of our on-train detection agent from Python to Rust, and build the
+internal tooling our engineers and testers rely on day to day.
 
 I've been building software professionally for over a decade. I started out in
 safety-critical embedded systems — helicopter health monitoring written to DO-178 —

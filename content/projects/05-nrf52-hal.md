@@ -1,8 +1,8 @@
 ---
 title: Contributor
-org: Rust nRF52 Hal
-location: Github
-date: 2018-
+org: Rust nRF52 HAL
+location: GitHub
+date: 2018 – Present
 emoji: "🔧"
 accent: green
 ---

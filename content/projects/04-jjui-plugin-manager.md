@@ -2,7 +2,7 @@
 title: Author
 org: jjui-pm
 location: GitHub
-date: 2026-
+date: 2026 – Present
 emoji: "🔌"
 accent: teal
 ---

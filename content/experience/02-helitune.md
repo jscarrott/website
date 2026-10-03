@@ -2,7 +2,7 @@
 title: Software Engineer
 org: Helitune/Beran Instruments
 location: Torrington, North Devon
-date: June 2015 - December 2019
+date: June 2015 – December 2019
 emoji: "⚙️"
 accent: green
 ---

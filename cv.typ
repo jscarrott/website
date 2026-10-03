@@ -2,16 +2,19 @@
 // Regenerate with: cargo run --manifest-path tools/cvgen/Cargo.toml
 // Compile with:    typst compile cv.typ
 #set document(title: "John Scarrott — Curriculum Vitae", author: "John Scarrott")
-#set page(paper: "a4", margin: (left: 1.4cm, right: 1.4cm, top: 1.2cm, bottom: 1.6cm))
-#set text(font: "Liberation Sans", size: 9.5pt, fill: rgb("#333333"))
-#set par(justify: true, leading: 0.62em)
+#set page(paper: "a4", margin: (left: 1.5cm, right: 1.5cm, top: 1.1cm, bottom: 1.2cm))
+// Left-aligned and unhyphenated: easier to scan than justified text, and no
+// tool names split across lines.
+#set text(font: "Liberation Sans", size: 9.8pt, fill: rgb("#2b2b2b"), hyphenate: false)
+#set par(justify: false, leading: 0.6em)
+#set list(spacing: 0.55em)
 
 #let accent = rgb("#27ae60")
-#let muted = rgb("#5d5d5d")
+#let muted = rgb("#4f4f4f")
 
 // Headings are sticky so they never end up alone at the bottom of a page.
 #let section(title) = {
-  v(8pt)
+  v(3pt)
   block(sticky: true, below: 6pt, {
     text(size: 13pt, weight: "bold", fill: accent, smallcaps(title))
     v(1pt)
@@ -19,22 +22,31 @@
   })
 }
 
-#let skill(name, items) = {
-  grid(columns: (33%, 1fr), gutter: 10pt, text(weight: "bold", hyphenate: false, name), text(items))
-  v(2pt)
-}
+// A two-column table of (category, items) pairs, kept on one page.
+#let skills(..rows) = block(breakable: false, grid(
+  columns: (33%, 1fr),
+  column-gutter: 10pt,
+  row-gutter: 8pt,
+  ..rows.pos().map(((name, items)) => (text(weight: "bold", name), text(fill: muted, items))).flatten(),
+))
 
 #let item(lead, rest) = {
-  if lead == "" { text(fill: muted, rest) } else { text(fill: muted, strong(lead) + " " + rest) }
+  // Bold lead in the body colour, the rest a shade lighter.
+  if lead == "" { text(fill: muted, rest) } else { strong(lead) + " " + text(fill: muted, rest) }
 }
 
+// Title and organisation on the left, location and dates on the right, all
+// on one line; the title stays with the first bullet across page breaks.
 #let entry(title, org, location, date, body) = {
-  // Long entries may break between bullets; the title stays with its first one.
-  block(below: 8pt, {
-    block(sticky: true, below: 0.65em, {
-      grid(columns: (1fr, auto), text(weight: "bold", title) + text(", " + org), text(fill: muted, date))
-      text(fill: muted, style: "italic", size: 9pt, location)
-    })
+  block(below: 7pt, {
+    block(sticky: true, below: 0.6em, grid(
+      columns: (1fr, auto),
+      text(weight: "bold", title) + text(", " + org),
+      {
+        if location != "" { text(fill: muted, style: "italic", location + "  ·  ") }
+        text(fill: muted, date)
+      },
+    ))
     show list.item: it => block(breakable: false, it)
     body
   })
@@ -43,45 +55,29 @@
 #align(center)[
   #text(size: 26pt)[John #text(fill: accent, weight: "bold")[Scarrott]]
   #linebreak()
-  #v(2pt)
+  #v(1pt)
   #text(size: 11pt, fill: muted, "Platform Lead · Rust & Systems Engineer")
-  #v(3pt)
-  #text(size: 8.5pt, "john@scarrotts.uk  |  (+44) 7733298950  |  www.jscarrott.com  |  github.com/jscarrott  |  Barnstaple, Devon, UK")
+  #v(2pt)
+  #text(size: 9pt)[#show link: set text(fill: accent)
+    #((link("mailto:john@scarrotts.uk", "john@scarrotts.uk"), "+44 7733 298950", link("https://www.jscarrott.com", "www.jscarrott.com"), link("https://github.com/jscarrott", "github.com/jscarrott"), "Barnstaple, Devon, UK",)).join("  |  ")]
 ]
-#v(6pt)
+#v(4pt)
 
-#section("Skills")
-#skill("Systems Programming", "Rust (Tokio async, FFI elimination, multi-call binaries, eBPF/XDP), C++, C")
-#skill("Rust Applications & UI", "Loco, GPUI desktop apps, ratatui TUIs, WebAssembly (ratzilla)")
-#skill("Backend & APIs", "Python (FastAPI, Pydantic v2, Celery, uv), MCP servers, OAuth 2.0/PKCE & SSO")
-#skill("Frontend", "TypeScript, React (Mantine, TanStack Query, React Router), Vite, Playwright")
-#skill("Databases", "PostgreSQL (advanced indexing & partition tuning), MySQL, SQLite, QuestDB, Elasticsearch, Redis, RabbitMQ")
-#skill("Containerisation & Orchestration", "Docker, Podman, Kubernetes, Helm, GKE, AKS, Talos Linux, Rook-Ceph, MetalLB")
-#skill("Infrastructure & Release Engineering", "Terraform/Terragrunt, Skaffold, Pants, Replicated, Harbor, GitHub Actions, ArgoCD, FluxCD, SOPS, bors-ng merge queues, SonarCloud")
-#skill("Observability", "Grafana, Datadog APM, statsd")
-#skill("Domain & Protocols", "Rail network protocols, ELR/miles-and-chains, DPI/Suricata, SNMP, MQTT, ARP, GPS/NMEA/gpsd")
-#skill("Engineering Practice", "Strangler-fig migration, TDD & BDD (Pytest, cargo test), Conventional Commits & release automation, ADRs, C4/D2 architecture modelling, secure-by-design")
-#skill("Leadership", "Cross-platform roadmapping, technical-direction setting, migration & rollback planning, effort estimation")
-#skill("Project Organisation", "GitHub Issues & Epics, JIRA, Confluence, Agile/SCRUM")
-#skill("Previously (not current)", "C#/WPF, F#, Java, PowerShell, SQL Server, NUnit, GoogleTest/GoogleMock, TeamCity, vSphere, packer/vagrant")
+#section("Profile")
+#"Platform lead and Rust engineer with over a decade of experience, from DO-178 safety-critical avionics to high-performance network security and cloud-native platforms. At RazorSecure I set technical direction across our on-train, frontend and backend platforms and led the migration of our on-train intrusion-detection agent, now on 1,000+ trains, from Python to Rust."
 
 #section("Experience")
-#entry("Senior Rust Software Engineer & Platform Lead", "RazorSecure", "Remote", "December 2019 - Present", list(
-  item("Platform technical lead:", "Set the technical direction for the product and author cross-platform roadmaps coordinating the on-train Agent, Frontend and Microservices/Backend platforms, so an architectural decision on one doesn't break another. Work is tracked as GitHub epics through an idea → buy-in → ticketed → planned → done lifecycle, and includes a push-based configuration-management design, a staged roadmap for offline (air-gapped) agent deployment, and an RBAC migration plan."),
-  item("Rust rewrite of the on-train detection agent (Python → Rust):", "Driving an incremental \"strangler-fig\" migration that ships one stage per sprint with no big-bang cutover. Built the agent as a multi-call single binary (clap) on a Tokio runtime, with structured async task supervision, `panic=unwind` so a faulty monitor restarts rather than aborting the process, a lifecycle state machine, and self-monitoring with health heartbeats. Reimplemented the full monitor suite to strict parity with the Python agent (network DoS / port-scan / ARP, USB, syslog via journald, Suricata DPI, SNMP, GPS via gpsd, file/inotify, nftables and more) and drove the codebase toward pure-Rust dependencies, dropping C-FFI libraries such as libsnmp and paho-mqtt. Hardened the codebase with a parse-don't-validate pass (newtypes and enums for PSKs, endpoints, protocol versions and rail-protocol fields) and a cargo-nextest test workflow."),
-  item("Rail-network monitoring:", "Productionised monitoring of on-train network protocols in the Rust agent, carrying it end to end through the platform: configuration in the dashboard, typed config delivered to devices, and an operator guide."),
-  item("High-performance detection core:", "Designed and built a zero-copy Rust deep packet inspection library with eBPF (XDP) acceleration, sustaining sub-microsecond latency and 1 million+ packets per second as the basis of the intrusion-detection product, plus an L2-to-L7 firewall for an embedded security gateway protecting critical rail network infrastructure."),
-  item("Cloud portability and on-prem deployment:", "Migrated storage and business logic off Google Cloud onto S3-compatible storage and made the entire platform deployable on-prem and on Azure — in-cluster Elasticsearch, Terraform fixes, and removal of cloud-provider-only assumptions across every Helm chart — including air-gapped Kubernetes clusters running alongside the cloud-hosted offering. Built an on-prem test rack on Talos Linux Kubernetes managed entirely by Flux GitOps (Rook-Ceph storage, MetalLB, SOPS-encrypted secrets and a Harbor pull-through registry mirror)."),
-  item("Deployment and release engineering:", "Consolidated dozens of per-microservice Helm deployments into a single platform Helm chart (bringing Redis, QuestDB and RabbitMQ into the chart), moved CI off developer machines into GitHub Actions, and introduced a Harbor OCI registry with Replicated-based on-prem distribution. Built release automation around git-cliff changelogs, Conventional-Commit linting, release actions and grouped Dependabot updates. Later moved every Python service to PEP 621 packaging resolved with uv and a shared run-service entrypoint, derived image and chart versions from git describe via Pants, ran database migrations once per release instead of per replica, and extended our bors-ng merge queue to land a whole GitHub native PR stack from a single `r+`."),
-  item("Data-store performance and platform uplift:", "Led deep PostgreSQL alert-store performance work — functional indexes on JSON fields, tsvector search predicates, partition pruning, bulk multi-row inserts and Celery tuning to eliminate out-of-memory failures during large batch jobs — alongside a MySQL 8.4 migration, a Pydantic v2 / FastAPI uplift across services, RabbitMQ 4.2 clustering, QuestDB ingest and memory-leak fixes, and an Elasticsearch migration to a Helm-hosted, tiered deployment with reindex-from-remote."),
-  item("Rail-specific detection and domain features:", "Implemented rail geospatial logic (lat/long → ELR plus miles-and-chains) and a range of new monitors and protocol support — Suricata DPI, an SSH honeypot, several rail-network protocols, mirrored-traffic and VLAN-strip handling, rate-limiting and time-based event prioritisation — plus a new customer-configuration microservice."),
-  item("Observability:", "Built a Grafana proxy architecture with authenticated endpoints and config-map-preloaded dashboards, later tuned with per-data-class cache TTLs, request coalescing and compressed large-panel responses, and instrumented the platform throughout with Datadog APM tracing and statsd metrics."),
-  item("Test-evidence platform:", "Designed and built, from scratch, the company's platform for manual test execution and evidence capture. It is a Rust (Loco) JSON API with a React and TypeScript SPA (Mantine, TanStack Query), deployed to Kubernetes through GitOps. Features include a versioned test library with shared steps, published test plans stored as immutable snapshots with drift diffs, step-by-step runs with pasted or dragged-in evidence, and requirements traceability with version history and roll-up coverage. It also has role-based sign-off with a review queue, SSO, and OAuth with PKCE. An MCP server lets AI agents author tests and record results, and each run exports as a Typst PDF report."),
-  item("Engineering tooling:", "Built a native Rust desktop configurator (GPUI) that authors the agent, processor and monitor-plan configuration, replacing a single-file web tool. It keeps versioned drafts for each system, copies configuration between near-identical train variants by matching lineage, and ships a Windows build. Also wrote ratatui terminal tools that generate realistic test traffic: train-network data, and NMEA GPS tracks along real rail routes using OpenStreetMap data, A* routing and a train motion model."),
-  item("Test and documentation discipline:", "Built a multi-tier BDD test harness spanning the agent, processing and integration layers up to end-to-end tests driven through a real MQTT broker, with a JUnit aggregator that produces a Typst PDF test report and parallel Docker-based BDD in CI; established documentation conventions (and moved the company docs site from mdBook to VitePress) with topical docs and Mermaid / C4 / D2 architecture diagrams, and contributed to open-source Rust libraries for layer-2 network monitoring and flame-graph performance analysis."),
+#entry("Senior Rust Software Engineer & Platform Lead", "RazorSecure", "Remote", "December 2019 – Present", list(
+  item("Platform technical lead:", "Set the technical direction for the product and a small engineering team, and own the cross-platform roadmap across the on-train agent, frontend and backend platforms, so an architectural decision on one doesn't break another. Recent designs include push-based configuration management, offline (air-gapped) agent deployment and an RBAC migration."),
+  item("Rust rewrite of the on-train detection agent:", "Led the agent's migration from Python to Rust, now complete and running on 1,000+ trains, as an incremental strangler-fig rewrite that shipped one stage per sprint with no big-bang cutover. Built a supervised Tokio runtime in which a faulty monitor restarts rather than taking the agent down, reached parity across the full monitor suite, replaced C-FFI dependencies with pure Rust, and productionised rail-network protocol monitoring end to end."),
+  item("High-performance detection core:", "Designed and built a zero-copy Rust deep packet inspection library with eBPF (XDP) acceleration, sustaining sub-microsecond latency at over 1 million packets per second, plus an L2–L7 firewall for an embedded rail security gateway."),
+  item("Cloud portability, on-prem and release engineering:", "Made the whole platform deployable on Azure, on-prem and in air-gapped Kubernetes clusters alongside the cloud offering. Consolidated Helm deployments for around 18 microservices into a single platform chart, moved CI onto GitHub Actions, built release automation, and stood up a GitOps-managed on-prem test rack (Talos Linux, Flux)."),
+  item("Data-store performance and observability:", "Led PostgreSQL alert-store tuning (functional indexes, partition pruning, bulk inserts) that eliminated out-of-memory failures in large batch jobs, alongside MySQL, Elasticsearch and RabbitMQ upgrades. Built an authenticated Grafana proxy and instrumented the platform with Datadog APM tracing."),
+  item("Test-evidence platform:", "Designed and built, from scratch, the platform the company now uses for all of its manual test execution and evidence capture: a Rust (Loco) API and React/TypeScript app with a versioned test library, immutable test-plan snapshots, requirements traceability, role-based sign-off with SSO, an MCP server for AI agents and PDF test reports."),
+  item("Engineering and test tooling:", "Built a native Rust (GPUI) desktop configurator for agent and monitor configuration, ratatui traffic generators that produce realistic train-network and GPS data along real rail routes, and a multi-tier BDD harness that runs end to end through a real MQTT broker in CI."),
 ))
 
-#entry("Software Engineer", "Helitune/Beran Instruments", "Torrington, North Devon", "June 2015 - December 2019", list(
+#entry("Software Engineer", "Helitune/Beran Instruments", "Torrington, North Devon", "June 2015 – December 2019", list(
   item("Next-generation protection and condition monitoring:", "Development and systems engineering of a next-generation system for large-plant monitoring. Championed the use of Rust for several of the system modules, running a dockerised signal-processing and logging system on an embedded target — being deployed at the NASA Ames Research Center."),
   item("Rotor Track and Balance systems:", "Developed and maintained a best-in-class RTB system in both carry-on and permanent-fit configurations, written to DO-178 Level C and D."),
   item("Modular C++ signal-processing system:", "Designed an all-new, module-based C++ signal-processing system that let existing and new products move onto a single platform. Being easily testable and replaceable, it shortened development time, made the system more robust, and fit well with agile working."),
@@ -89,36 +85,53 @@
   item("Version control and CI:", "Led the company's move from TFS to Git — teaching teams distributed version control and introducing code review — and built the CI workflow around it with packer/vagrant, vSphere and TeamCity."),
 ))
 
-#section("Extracurricular Activity")
-#entry("Author", "STDA Sailboat Simulator", "GitHub", "2023-", list(
+#section("Skills")
+#skills(
+  ("Systems Programming", "Rust (Tokio async, FFI elimination, multi-call binaries, eBPF/XDP), C++, C"),
+  ("Rust Applications & UI", "Loco, GPUI desktop apps, ratatui TUIs, WebAssembly (ratzilla)"),
+  ("Backend & APIs", "Python (FastAPI, Pydantic v2, Celery, uv), MCP servers, OAuth 2.0/PKCE & SSO"),
+  ("Frontend", "TypeScript, React (Mantine, TanStack Query, React Router), Vite, Playwright"),
+  ("Databases", "PostgreSQL (advanced indexing & partition tuning), MySQL, SQLite, QuestDB, Elasticsearch, Redis, RabbitMQ"),
+  ("Containerisation & Orchestration", "Docker, Podman, Kubernetes, Helm, GKE, AKS, Talos Linux, Rook-Ceph, MetalLB"),
+  ("Infrastructure & Release Engineering", "Terraform/Terragrunt, Skaffold, Pants, Replicated, Harbor, GitHub Actions, ArgoCD, FluxCD, SOPS, bors-ng merge queues, SonarCloud"),
+  ("Observability", "Grafana, Datadog APM, statsd"),
+  ("Domain & Protocols", "Rail network protocols, ELR/miles-and-chains, DPI/Suricata, SNMP, MQTT, ARP, GPS/NMEA/gpsd"),
+  ("Engineering Practice", "Strangler-fig migration, TDD & BDD (Pytest, cargo test), Conventional Commits & release automation, ADRs, C4/D2 architecture modelling, secure-by-design"),
+  ("Leadership", "Cross-platform roadmapping, technical-direction setting, migration & rollback planning, effort estimation"),
+  ("Project Organisation", "GitHub Issues & Epics, JIRA, Confluence, Agile/SCRUM"),
+  ("Previously (not current)", "C#/WPF, F#, Java, PowerShell, SQL Server, NUnit, GoogleTest/GoogleMock, TeamCity, vSphere, packer/vagrant"),
+)
+
+#section("Projects")
+#entry("Author", "STDA Sailboat Simulator", "GitHub", "2023 – Present", list(
   item("", "Building a physics-based simulator to design, develop and test an autonomous sailboat before deploying to real hardware."),
   item("", "Ported the 6-degree-of-freedom (6-DOF) dynamics core to Rust from a published autonomous-sailing model (Sailing Team Darmstadt, IRSC 2018), and extended it with route-following, real nautical-chart navigation and a speed-polar calibration instrument."),
   item("", "Rust and Python, working toward calibrating the model against real-world data for a hardware retrofit and autonomous-control trials."),
 ))
 
-#entry("Author", "Homebox Home Assistant Add-on", "GitHub", "2025-", list(
+#entry("Author", "Homebox Home Assistant Add-on", "GitHub", "2025 – Present", list(
   item("", "Home Assistant add-on that packages Homebox (a self-hosted home inventory tool) for one-click installation through the Home Assistant Supervisor."),
   item("", "My most-starred public project, used by the wider Home Assistant community."),
   item("", "Maintained add-on repository with a containerised build and release flow."),
 ))
 
-#entry("Author", "Md-book combiner", "Github", "2023-", list(
+#entry("Author", "mdBook combiner", "GitHub", "2023 – Present", list(
   item("", "Small tool that combines mdBooks from multiple repositories into one site, shipped through automated releases."),
 ))
 
-#entry("Author", "jjui-pm", "GitHub", "2026-", list(
+#entry("Author", "jjui-pm", "GitHub", "2026 – Present", list(
   item("", "CLI plugin manager, written in Rust, for jjui — a TUI for the Jujutsu (jj) version-control system."),
   item("", "Manages Lua plugins by reading and modifying the jjui config file; installable via cargo."),
   item("", "Reflects deep day-to-day use of Jujutsu and the Rust terminal-UI ecosystem."),
 ))
 
-#entry("Contributor", "Rust nRF52 Hal", "Github", "2018-", list(
+#entry("Contributor", "Rust nRF52 HAL", "GitHub", "2018 – Present", list(
   item("", "Experienced developing at the cutting edge, implementing Rust only hardware abstraction on a micro-controller."),
   item("", "Being the first to run Rust on the nRF52840 chip proved a real problem solving challenge."),
 ))
 
-#section("Education")
-#entry("BSc. in Computing and Psychology", "The Open University", "England", "2011 - 2015", list(
+#section("Education & Training")
+#entry("BSc. in Computing and Psychology", "The Open University", "England", "2011 – 2015", list(
   item("", "Software development and the psychology behind user interface design"),
 ))
 

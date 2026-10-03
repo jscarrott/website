@@ -2,7 +2,7 @@
 title: Author
 org: STDA Sailboat Simulator
 location: GitHub
-date: 2023-
+date: 2023 – Present
 emoji: "⛵"
 accent: orange
 demo: sail

@@ -2,7 +2,7 @@
 title: BSc. in Computing and Psychology
 org: The Open University
 location: England
-date: 2011 - 2015
+date: 2011 – 2015
 emoji: "🎓"
 accent: yellow
 ---
