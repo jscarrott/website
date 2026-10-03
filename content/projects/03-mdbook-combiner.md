@@ -1,8 +1,8 @@
 ---
 title: Author
-org: Md-book combiner
-location: Github
-date: 2023-
+org: mdBook combiner
+location: GitHub
+date: 2023 – Present
 emoji: "📖"
 accent: yellow
 ---

@@ -3,8 +3,10 @@ last_name: Scarrott
 site_position: "Platform Lead • Rust & Systems Engineer"
 cv_position: "Platform Lead · Rust & Systems Engineer"
 email: john@scarrotts.uk
-phone: "(+44) 7733298950"
+phone: "+44 7733 298950"
 location: "Barnstaple, Devon, UK"
 homepage: "www.jscarrott.com"
 github: jscarrott
 linkedin: "John Scarrott"
+# Two-to-three-line profile at the top of the PDF CV.
+cv_summary: "Platform lead and Rust engineer with over a decade of experience, from DO-178 safety-critical avionics to high-performance network security and cloud-native platforms. At RazorSecure I set technical direction across our on-train, frontend and backend platforms and led the migration of our on-train intrusion-detection agent, now on 1,000+ trains, from Python to Rust."

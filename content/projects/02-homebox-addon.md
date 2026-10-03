@@ -2,7 +2,7 @@
 title: Author
 org: Homebox Home Assistant Add-on
 location: GitHub
-date: 2025-
+date: 2025 – Present
 emoji: "🏠"
 accent: purple
 ---

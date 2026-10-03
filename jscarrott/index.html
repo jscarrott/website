@@ -85,7 +85,7 @@ dl.skills dd { margin: 0; }
         <p class="tagline">Platform Lead · Rust &amp; Systems Engineer</p>
         <p class="contact">
           <a href="mailto:john@scarrotts.uk">john@scarrotts.uk</a>
-          <span>(+44) 7733298950</span>
+          <span>+44 7733 298950</span>
           <a href="https://www.jscarrott.com">www.jscarrott.com</a>
           <a href="https://github.com/jscarrott">github.com/jscarrott</a>
           <span>Barnstaple, Devon, UK</span>
@@ -94,7 +94,7 @@ dl.skills dd { margin: 0; }
       </header>
       <section id="about">
         <h2>About</h2>
-        <p>I'm a software engineer and platform lead at RazorSecure, where we build intrusion detection for the rail industry — on-train agents reporting back to a wayside and cloud platform. I set the technical direction across our platforms and am currently leading the migration of our on-train detection agent from Python to Rust, alongside building the internal tooling our engineers and testers rely on day to day.</p>
+        <p>I'm a software engineer and platform lead at RazorSecure, where we build intrusion detection for the rail industry — on-train agents reporting back to a wayside and cloud platform. I set the technical direction across our platforms, led the migration of our on-train detection agent from Python to Rust, and build the internal tooling our engineers and testers rely on day to day.</p>
         <p>I've been building software professionally for over a decade. I started out in safety-critical embedded systems — helicopter health monitoring written to DO-178 — before moving into high-performance networking, security and cloud-native infrastructure. These days I work mostly in Rust and Python, and I'm at my best on low-level, performance-sensitive problems and the tooling and systems around them.</p>
         <p>What I tend to focus on:</p>
         <ul>
@@ -110,25 +110,20 @@ dl.skills dd { margin: 0; }
         <h2>Experience</h2>
         <article class="entry" id="experience/razorsecure">
           <h3>🚀 Senior Rust Software Engineer &amp; Platform Lead<span class="org"> — RazorSecure</span></h3>
-          <p class="meta">December 2019 - Present · Remote</p>
+          <p class="meta">December 2019 – Present · Remote</p>
           <ul>
-            <li><strong>Platform technical lead:</strong> Set the technical direction for the product and author cross-platform roadmaps coordinating the on-train Agent, Frontend and Microservices/Backend platforms, so an architectural decision on one doesn't break another. Work is tracked as GitHub epics through an idea → buy-in → ticketed → planned → done lifecycle, and includes a push-based configuration-management design, a staged roadmap for offline (air-gapped) agent deployment, and an RBAC migration plan.</li>
-            <li><strong>Rust rewrite of the on-train detection agent (Python → Rust):</strong> Driving an incremental "strangler-fig" migration that ships one stage per sprint with no big-bang cutover. Built the agent as a multi-call single binary (clap) on a Tokio runtime, with structured async task supervision, `panic=unwind` so a faulty monitor restarts rather than aborting the process, a lifecycle state machine, and self-monitoring with health heartbeats. Reimplemented the full monitor suite to strict parity with the Python agent (network DoS / port-scan / ARP, USB, syslog via journald, Suricata DPI, SNMP, GPS via gpsd, file/inotify, nftables and more) and drove the codebase toward pure-Rust dependencies, dropping C-FFI libraries such as libsnmp and paho-mqtt. Hardened the codebase with a parse-don't-validate pass (newtypes and enums for PSKs, endpoints, protocol versions and rail-protocol fields) and a cargo-nextest test workflow.</li>
-            <li><strong>Rail-network monitoring:</strong> Productionised monitoring of on-train network protocols in the Rust agent, carrying it end to end through the platform: configuration in the dashboard, typed config delivered to devices, and an operator guide.</li>
-            <li><strong>High-performance detection core:</strong> Designed and built a zero-copy Rust deep packet inspection library with eBPF (XDP) acceleration, sustaining sub-microsecond latency and 1 million+ packets per second as the basis of the intrusion-detection product, plus an L2-to-L7 firewall for an embedded security gateway protecting critical rail network infrastructure.</li>
-            <li><strong>Cloud portability and on-prem deployment:</strong> Migrated storage and business logic off Google Cloud onto S3-compatible storage and made the entire platform deployable on-prem and on Azure — in-cluster Elasticsearch, Terraform fixes, and removal of cloud-provider-only assumptions across every Helm chart — including air-gapped Kubernetes clusters running alongside the cloud-hosted offering. Built an on-prem test rack on Talos Linux Kubernetes managed entirely by Flux GitOps (Rook-Ceph storage, MetalLB, SOPS-encrypted secrets and a Harbor pull-through registry mirror).</li>
-            <li><strong>Deployment and release engineering:</strong> Consolidated dozens of per-microservice Helm deployments into a single platform Helm chart (bringing Redis, QuestDB and RabbitMQ into the chart), moved CI off developer machines into GitHub Actions, and introduced a Harbor OCI registry with Replicated-based on-prem distribution. Built release automation around git-cliff changelogs, Conventional-Commit linting, release actions and grouped Dependabot updates. Later moved every Python service to PEP 621 packaging resolved with uv and a shared run-service entrypoint, derived image and chart versions from git describe via Pants, ran database migrations once per release instead of per replica, and extended our bors-ng merge queue to land a whole GitHub native PR stack from a single `r+`.</li>
-            <li><strong>Data-store performance and platform uplift:</strong> Led deep PostgreSQL alert-store performance work — functional indexes on JSON fields, tsvector search predicates, partition pruning, bulk multi-row inserts and Celery tuning to eliminate out-of-memory failures during large batch jobs — alongside a MySQL 8.4 migration, a Pydantic v2 / FastAPI uplift across services, RabbitMQ 4.2 clustering, QuestDB ingest and memory-leak fixes, and an Elasticsearch migration to a Helm-hosted, tiered deployment with reindex-from-remote.</li>
-            <li><strong>Rail-specific detection and domain features:</strong> Implemented rail geospatial logic (lat/long → ELR plus miles-and-chains) and a range of new monitors and protocol support — Suricata DPI, an SSH honeypot, several rail-network protocols, mirrored-traffic and VLAN-strip handling, rate-limiting and time-based event prioritisation — plus a new customer-configuration microservice.</li>
-            <li><strong>Observability:</strong> Built a Grafana proxy architecture with authenticated endpoints and config-map-preloaded dashboards, later tuned with per-data-class cache TTLs, request coalescing and compressed large-panel responses, and instrumented the platform throughout with Datadog APM tracing and statsd metrics.</li>
-            <li><strong>Test-evidence platform:</strong> Designed and built, from scratch, the company's platform for manual test execution and evidence capture. It is a Rust (Loco) JSON API with a React and TypeScript SPA (Mantine, TanStack Query), deployed to Kubernetes through GitOps. Features include a versioned test library with shared steps, published test plans stored as immutable snapshots with drift diffs, step-by-step runs with pasted or dragged-in evidence, and requirements traceability with version history and roll-up coverage. It also has role-based sign-off with a review queue, SSO, and OAuth with PKCE. An MCP server lets AI agents author tests and record results, and each run exports as a Typst PDF report.</li>
-            <li><strong>Engineering tooling:</strong> Built a native Rust desktop configurator (GPUI) that authors the agent, processor and monitor-plan configuration, replacing a single-file web tool. It keeps versioned drafts for each system, copies configuration between near-identical train variants by matching lineage, and ships a Windows build. Also wrote ratatui terminal tools that generate realistic test traffic: train-network data, and NMEA GPS tracks along real rail routes using OpenStreetMap data, A* routing and a train motion model.</li>
-            <li><strong>Test and documentation discipline:</strong> Built a multi-tier BDD test harness spanning the agent, processing and integration layers up to end-to-end tests driven through a real MQTT broker, with a JUnit aggregator that produces a Typst PDF test report and parallel Docker-based BDD in CI; established documentation conventions (and moved the company docs site from mdBook to VitePress) with topical docs and Mermaid / C4 / D2 architecture diagrams, and contributed to open-source Rust libraries for layer-2 network monitoring and flame-graph performance analysis.</li>
+            <li><strong>Platform technical lead:</strong> Set the technical direction for the product and a small engineering team, and own the cross-platform roadmap across the on-train agent, frontend and backend platforms, so an architectural decision on one doesn't break another. Recent designs include push-based configuration management, offline (air-gapped) agent deployment and an RBAC migration.</li>
+            <li><strong>Rust rewrite of the on-train detection agent:</strong> Led the agent's migration from Python to Rust, now complete and running on 1,000+ trains, as an incremental strangler-fig rewrite that shipped one stage per sprint with no big-bang cutover. Built a supervised Tokio runtime in which a faulty monitor restarts rather than taking the agent down, reached parity across the full monitor suite, replaced C-FFI dependencies with pure Rust, and productionised rail-network protocol monitoring end to end.</li>
+            <li><strong>High-performance detection core:</strong> Designed and built a zero-copy Rust deep packet inspection library with eBPF (XDP) acceleration, sustaining sub-microsecond latency at over 1 million packets per second, plus an L2–L7 firewall for an embedded rail security gateway.</li>
+            <li><strong>Cloud portability, on-prem and release engineering:</strong> Made the whole platform deployable on Azure, on-prem and in air-gapped Kubernetes clusters alongside the cloud offering. Consolidated Helm deployments for around 18 microservices into a single platform chart, moved CI onto GitHub Actions, built release automation, and stood up a GitOps-managed on-prem test rack (Talos Linux, Flux).</li>
+            <li><strong>Data-store performance and observability:</strong> Led PostgreSQL alert-store tuning (functional indexes, partition pruning, bulk inserts) that eliminated out-of-memory failures in large batch jobs, alongside MySQL, Elasticsearch and RabbitMQ upgrades. Built an authenticated Grafana proxy and instrumented the platform with Datadog APM tracing.</li>
+            <li><strong>Test-evidence platform:</strong> Designed and built, from scratch, the platform the company now uses for all of its manual test execution and evidence capture: a Rust (Loco) API and React/TypeScript app with a versioned test library, immutable test-plan snapshots, requirements traceability, role-based sign-off with SSO, an MCP server for AI agents and PDF test reports.</li>
+            <li><strong>Engineering and test tooling:</strong> Built a native Rust (GPUI) desktop configurator for agent and monitor configuration, ratatui traffic generators that produce realistic train-network and GPS data along real rail routes, and a multi-tier BDD harness that runs end to end through a real MQTT broker in CI.</li>
           </ul>
         </article>
         <article class="entry" id="experience/helitune">
           <h3>⚙️ Software Engineer<span class="org"> — Helitune/Beran Instruments</span></h3>
-          <p class="meta">June 2015 - December 2019 · Torrington, North Devon</p>
+          <p class="meta">June 2015 – December 2019 · Torrington, North Devon</p>
           <ul>
             <li><strong>Next-generation protection and condition monitoring:</strong> Development and systems engineering of a next-generation system for large-plant monitoring. Championed the use of Rust for several of the system modules, running a dockerised signal-processing and logging system on an embedded target — being deployed at the NASA Ames Research Center.</li>
             <li><strong>Rotor Track and Balance systems:</strong> Developed and maintained a best-in-class RTB system in both carry-on and permanent-fit configurations, written to DO-178 Level C and D.</li>
@@ -173,7 +168,7 @@ dl.skills dd { margin: 0; }
         <h2>Projects</h2>
         <article class="entry" id="projects/sailboat-simulator">
           <h3>⛵ Author<span class="org"> — STDA Sailboat Simulator</span></h3>
-          <p class="meta">2023- · GitHub</p>
+          <p class="meta">2023 – Present · GitHub</p>
           <ul>
             <li>Building a physics-based simulator to design, develop and test an autonomous sailboat before deploying to real hardware.</li>
             <li>Ported the 6-degree-of-freedom (6-DOF) dynamics core to Rust from a published autonomous-sailing model (Sailing Team Darmstadt, IRSC 2018), and extended it with route-following, real nautical-chart navigation and a speed-polar calibration instrument.</li>
@@ -182,7 +177,7 @@ dl.skills dd { margin: 0; }
         </article>
         <article class="entry" id="projects/homebox-addon">
           <h3>🏠 Author<span class="org"> — Homebox Home Assistant Add-on</span></h3>
-          <p class="meta">2025- · GitHub</p>
+          <p class="meta">2025 – Present · GitHub</p>
           <ul>
             <li>Home Assistant add-on that packages Homebox (a self-hosted home inventory tool) for one-click installation through the Home Assistant Supervisor.</li>
             <li>My most-starred public project, used by the wider Home Assistant community.</li>
@@ -190,15 +185,15 @@ dl.skills dd { margin: 0; }
           </ul>
         </article>
         <article class="entry" id="projects/mdbook-combiner">
-          <h3>📖 Author<span class="org"> — Md-book combiner</span></h3>
-          <p class="meta">2023- · Github</p>
+          <h3>📖 Author<span class="org"> — mdBook combiner</span></h3>
+          <p class="meta">2023 – Present · GitHub</p>
           <ul>
             <li>Small tool that combines mdBooks from multiple repositories into one site, shipped through automated releases.</li>
           </ul>
         </article>
         <article class="entry" id="projects/jjui-plugin-manager">
           <h3>🔌 Author<span class="org"> — jjui-pm</span></h3>
-          <p class="meta">2026- · GitHub</p>
+          <p class="meta">2026 – Present · GitHub</p>
           <ul>
             <li>CLI plugin manager, written in Rust, for jjui — a TUI for the Jujutsu (jj) version-control system.</li>
             <li>Manages Lua plugins by reading and modifying the jjui config file; installable via cargo.</li>
@@ -206,8 +201,8 @@ dl.skills dd { margin: 0; }
           </ul>
         </article>
         <article class="entry" id="projects/nrf52-hal">
-          <h3>🔧 Contributor<span class="org"> — Rust nRF52 Hal</span></h3>
-          <p class="meta">2018- · Github</p>
+          <h3>🔧 Contributor<span class="org"> — Rust nRF52 HAL</span></h3>
+          <p class="meta">2018 – Present · GitHub</p>
           <ul>
             <li>Experienced developing at the cutting edge, implementing Rust only hardware abstraction on a micro-controller.</li>
             <li>Being the first to run Rust on the nRF52840 chip proved a real problem solving challenge.</li>
@@ -218,7 +213,7 @@ dl.skills dd { margin: 0; }
         <h2>Education</h2>
         <article class="entry" id="education/open-university">
           <h3>🎓 BSc. in Computing and Psychology<span class="org"> — The Open University</span></h3>
-          <p class="meta">2011 - 2015 · England</p>
+          <p class="meta">2011 – 2015 · England</p>
           <ul>
             <li>Software development and the psychology behind user interface design</li>
           </ul>
